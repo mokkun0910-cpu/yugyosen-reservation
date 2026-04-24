@@ -16,6 +16,16 @@ export default function AdminDatesPage() {
   const [copyLoading, setCopyLoading] = useState(false)
   const [copyError, setCopyError] = useState('')
 
+  // 天候不良キャンセル用の状態
+  const [weatherTarget, setWeatherTarget] = useState<any | null>(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherResult, setWeatherResult] = useState<{ cancelled: number; notified: number } | null>(null)
+
+  // 出航決定通知用の状態
+  const [departureTarget, setDepartureTarget] = useState<any | null>(null)
+  const [departureLoading, setDepartureLoading] = useState(false)
+  const [departureResult, setDepartureResult] = useState<{ notified: number } | null>(null)
+
   async function fetchDates() {
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
@@ -46,6 +56,37 @@ export default function AdminDatesPage() {
     if (!confirm('この出船日を削除しますか？')) return
     await supabase.from('departure_dates').delete().eq('id', id)
     await fetchDates()
+  }
+
+  async function handleDepartureConfirm() {
+    if (!departureTarget) return
+    setDepartureLoading(true)
+    const res = await fetch('/api/admin/departure-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateId: departureTarget.id }),
+    })
+    const data = await res.json()
+    setDepartureLoading(false)
+    if (data.ok) {
+      setDepartureResult({ notified: data.notified })
+    }
+  }
+
+  async function handleWeatherCancel() {
+    if (!weatherTarget) return
+    setWeatherLoading(true)
+    const res = await fetch('/api/admin/weather-cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateId: weatherTarget.id }),
+    })
+    const data = await res.json()
+    setWeatherLoading(false)
+    if (data.ok) {
+      setWeatherResult({ cancelled: data.cancelled, notified: data.notified })
+      await fetchDates()
+    }
   }
 
   function openCopyModal(d: any) {
@@ -168,6 +209,18 @@ export default function AdminDatesPage() {
                 </span>
               </div>
             </div>
+            {/* 通知ボタン（目立つ大きめ） */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
+                className="flex items-center justify-center gap-1.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                ⚓ 出航決定を通知
+              </button>
+              <button onClick={() => { setWeatherTarget(d); setWeatherResult(null) }}
+                className="flex items-center justify-center gap-1.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
+                ⛈️ 天候不良を通知
+              </button>
+            </div>
+            {/* サブ操作ボタン */}
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => router.push(`/admin/plans/${d.id}`)}
                 className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg font-medium">
@@ -193,6 +246,104 @@ export default function AdminDatesPage() {
           </div>
         ))}
       </div>
+
+      {/* 出航決定通知モーダル */}
+      {departureTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {departureResult ? (
+              <>
+                <div className="text-center mb-4">
+                  <div className="text-4xl mb-2">✅</div>
+                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
+                  <p className="text-sm text-gray-600">
+                    {departureResult.notified}名にLINEで通知しました。
+                  </p>
+                </div>
+                <button onClick={() => setDepartureTarget(null)}
+                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  閉じる
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-base mb-1">⚓ 出航決定通知</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  「{formatDateJa(departureTarget.date)}」の予約者全員に出航決定をLINEで通知します。
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs text-blue-800">
+                  <p className="font-bold mb-1">送信されるメッセージ：</p>
+                  <p>⚓ 出航決定のお知らせ</p>
+                  <p>【日程】{formatDateJa(departureTarget.date)}</p>
+                  <p className="mt-1">明日の出航が決定いたしました。ご予約いただきありがとうございます。</p>
+                  <p className="mt-1">もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。</p>
+                  <p className="mt-1">当日皆様のご乗船をお待ちしております。🎣 遊漁船 王丸</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setDepartureTarget(null)}
+                    className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">
+                    キャンセル
+                  </button>
+                  <button onClick={handleDepartureConfirm} disabled={departureLoading}
+                    className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold disabled:opacity-50">
+                    {departureLoading ? '送信中...' : '送信する'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 天候不良キャンセルモーダル */}
+      {weatherTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {weatherResult ? (
+              <>
+                <div className="text-center mb-4">
+                  <div className="text-4xl mb-2">✅</div>
+                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
+                  <p className="text-sm text-gray-600">
+                    {weatherResult.cancelled}件の予約をキャンセルし、<br />
+                    {weatherResult.notified}名にLINEで通知しました。
+                  </p>
+                </div>
+                <button onClick={() => setWeatherTarget(null)}
+                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  閉じる
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-base mb-1">⛈️ 天候不良キャンセル</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  「{formatDateJa(weatherTarget.date)}」の全予約をキャンセルし、LINE登録済みのお客さんに一斉通知します。
+                </p>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 text-xs text-orange-800">
+                  <p className="font-bold mb-1">送信されるメッセージ：</p>
+                  <p>⚠️ 出船中止のお知らせ</p>
+                  <p>【日程】{formatDateJa(weatherTarget.date)}</p>
+                  <p>【理由】天候不良のため</p>
+                  <p className="mt-1">誠に申し訳ございませんが、当日の出船を中止とさせていただきます。</p>
+                  <p className="mt-1">もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。</p>
+                  <p className="mt-1">またのご予約をお待ちしております。🎣 遊漁船 王丸</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setWeatherTarget(null)}
+                    className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">
+                    キャンセル
+                  </button>
+                  <button onClick={handleWeatherCancel} disabled={weatherLoading}
+                    className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold disabled:opacity-50">
+                    {weatherLoading ? '送信中...' : '送信する'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* コピーモーダル */}
       {copySource && (
