@@ -164,6 +164,10 @@ export default function AdminDatesPage() {
                 className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg font-medium">
                 プランを設定
               </button>
+              <a href={`/api/admin/export?dateId=${d.id}`} download
+                className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
+                📥 乗船名簿
+              </a>
               <button onClick={() => openCopyModal(d)}
                 className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg font-medium">
                 📋 コピー作成
