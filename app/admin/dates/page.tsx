@@ -10,6 +10,12 @@ export default function AdminDatesPage() {
   const [newDate, setNewDate] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // コピー用の状態
+  const [copySource, setCopySource] = useState<any | null>(null)
+  const [copyTargetDate, setCopyTargetDate] = useState('')
+  const [copyLoading, setCopyLoading] = useState(false)
+  const [copyError, setCopyError] = useState('')
+
   async function fetchDates() {
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
@@ -40,6 +46,83 @@ export default function AdminDatesPage() {
     if (!confirm('この出船日を削除しますか？')) return
     await supabase.from('departure_dates').delete().eq('id', id)
     await fetchDates()
+  }
+
+  function openCopyModal(d: any) {
+    setCopySource(d)
+    setCopyTargetDate('')
+    setCopyError('')
+  }
+
+  function closeCopyModal() {
+    setCopySource(null)
+    setCopyTargetDate('')
+    setCopyError('')
+  }
+
+  async function handleCopy() {
+    if (!copySource || !copyTargetDate) return
+    setCopyLoading(true)
+    setCopyError('')
+
+    try {
+      // 同じ日付がすでに存在するか確認
+      const { data: existing } = await supabase
+        .from('departure_dates')
+        .select('id')
+        .eq('date', copyTargetDate)
+        .single()
+
+      let targetDateId: string
+
+      if (existing) {
+        targetDateId = existing.id
+      } else {
+        // 新しい出船日を作成
+        const { data: newDateData, error: dateError } = await supabase
+          .from('departure_dates')
+          .insert({ date: copyTargetDate, is_open: false })
+          .select()
+          .single()
+        if (dateError || !newDateData) {
+          setCopyError('出船日の作成に失敗しました。')
+          setCopyLoading(false)
+          return
+        }
+        targetDateId = newDateData.id
+      }
+
+      // 元の出船日のプランを取得
+      const { data: sourcePlans } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('departure_date_id', copySource.id)
+
+      if (sourcePlans && sourcePlans.length > 0) {
+        const newPlans = sourcePlans.map((p: any) => ({
+          departure_date_id: targetDateId,
+          name: p.name,
+          departure_time: p.departure_time,
+          capacity: p.capacity,
+          price: p.price,
+          description: p.description,
+          is_locked: false,
+        }))
+        const { error: planError } = await supabase.from('plans').insert(newPlans)
+        if (planError) {
+          setCopyError('プランのコピーに失敗しました。')
+          setCopyLoading(false)
+          return
+        }
+      }
+
+      await fetchDates()
+      closeCopyModal()
+    } catch {
+      setCopyError('予期しないエラーが発生しました。')
+    } finally {
+      setCopyLoading(false)
+    }
   }
 
   return (
@@ -81,6 +164,10 @@ export default function AdminDatesPage() {
                 className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg font-medium">
                 プランを設定
               </button>
+              <button onClick={() => openCopyModal(d)}
+                className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg font-medium">
+                📋 コピー作成
+              </button>
               <button onClick={() => toggleOpen(d.id, d.is_open)}
                 className="text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg font-medium">
                 {d.is_open ? '非公開にする' : '公開する'}
@@ -93,6 +180,45 @@ export default function AdminDatesPage() {
           </div>
         ))}
       </div>
+
+      {/* コピーモーダル */}
+      {copySource && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-base mb-1">出船日をコピー</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              「{formatDateJa(copySource.date)}」の全プラン（{copySource.plans?.length || 0}件）を別の日付にコピーします
+            </p>
+
+            <label className="label">コピー先の日付</label>
+            <input
+              type="date"
+              className="input-field mb-4"
+              value={copyTargetDate}
+              onChange={(e) => setCopyTargetDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+            />
+
+            {copyError && <p className="text-xs text-red-500 mb-3">{copyError}</p>}
+
+            <div className="flex gap-2">
+              <button
+                onClick={closeCopyModal}
+                className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleCopy}
+                disabled={copyLoading || !copyTargetDate}
+                className="flex-1 py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold disabled:opacity-50"
+              >
+                {copyLoading ? 'コピー中...' : 'コピーする'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
