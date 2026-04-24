@@ -65,7 +65,8 @@ export default function HomePage() {
 
   useEffect(() => {
     async function fetchDates() {
-      const today = new Date().toISOString().slice(0, 10)
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       const { data: datesData } = await supabase
         .from('departure_dates')
         .select('id, date, is_open, plans(id, name, target_fish, departure_time, is_locked, capacity)')
@@ -142,7 +143,8 @@ export default function HomePage() {
     setSelectedDate(null)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const cells = buildCalendar(currentYear, currentMonth)
 
   // 選択した日のプラン情報
