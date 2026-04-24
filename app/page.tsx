@@ -28,7 +28,7 @@ export default function HomePage() {
       const today = new Date().toISOString().slice(0, 10)
       const { data: datesData } = await supabase
         .from('departure_dates')
-        .select('id, date, is_open, plans(id, is_locked, capacity)')
+        .select('id, date, is_open, plans(id, name, target_fish, departure_time, is_locked, capacity)')
         .eq('is_open', true)
         .gte('date', today)
         .order('date', { ascending: true })
@@ -250,9 +250,9 @@ export default function HomePage() {
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-bold text-gray-800 text-sm">{plan.name || 'プラン'}</div>
+                            <div className="font-bold text-gray-800 text-sm">{plan.name}</div>
                             <div className="text-xs text-gray-500 mt-0.5">
-                              定員 {plan.capacity}名
+                              🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
                             </div>
                           </div>
                           <span className="badge-available">予約する →</span>
