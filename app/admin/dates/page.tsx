@@ -66,60 +66,69 @@ export default function AdminDatesPage() {
     setCopyError('')
 
     try {
-      // 同じ日付がすでに存在するか確認
-      const { data: existing } = await supabase
+      // 同じ日付がすでに存在するか確認（配列で取得してエラーを避ける）
+      const { data: existingList } = await supabase
         .from('departure_dates')
         .select('id')
         .eq('date', copyTargetDate)
-        .single()
 
       let targetDateId: string
 
-      if (existing) {
-        targetDateId = existing.id
+      if (existingList && existingList.length > 0) {
+        targetDateId = existingList[0].id
       } else {
         // 新しい出船日を作成
         const { data: newDateData, error: dateError } = await supabase
           .from('departure_dates')
           .insert({ date: copyTargetDate, is_open: false })
           .select()
-          .single()
-        if (dateError || !newDateData) {
-          setCopyError('出船日の作成に失敗しました。')
+        if (dateError || !newDateData || newDateData.length === 0) {
+          setCopyError('出船日の作成に失敗しました: ' + (dateError?.message || '不明なエラー'))
           setCopyLoading(false)
           return
         }
-        targetDateId = newDateData.id
+        targetDateId = newDateData[0].id
       }
 
       // 元の出船日のプランを取得
-      const { data: sourcePlans } = await supabase
+      const { data: sourcePlans, error: planFetchError } = await supabase
         .from('plans')
         .select('*')
         .eq('departure_date_id', copySource.id)
 
-      if (sourcePlans && sourcePlans.length > 0) {
-        const newPlans = sourcePlans.map((p: any) => ({
-          departure_date_id: targetDateId,
-          name: p.name,
-          target_fish: p.target_fish,
-          departure_time: p.departure_time,
-          capacity: p.capacity,
-          price: p.price,
-          is_locked: false,
-        }))
-        const { error: planError } = await supabase.from('plans').insert(newPlans)
-        if (planError) {
-          setCopyError('プランのコピーに失敗しました。')
-          setCopyLoading(false)
-          return
-        }
+      if (planFetchError) {
+        setCopyError('プランの取得に失敗しました: ' + planFetchError.message)
+        setCopyLoading(false)
+        return
+      }
+
+      if (!sourcePlans || sourcePlans.length === 0) {
+        setCopyError('コピー元にプランがありません。先にプランを設定してください。')
+        setCopyLoading(false)
+        return
+      }
+
+      const newPlans = sourcePlans.map((p: any) => ({
+        departure_date_id: targetDateId,
+        name: p.name,
+        target_fish: p.target_fish,
+        departure_time: p.departure_time,
+        capacity: p.capacity,
+        price: p.price,
+        is_locked: false,
+      }))
+
+      const { error: planInsertError } = await supabase.from('plans').insert(newPlans)
+      if (planInsertError) {
+        setCopyError('プランのコピーに失敗しました: ' + planInsertError.message)
+        setCopyLoading(false)
+        return
       }
 
       await fetchDates()
       closeCopyModal()
-    } catch {
-      setCopyError('予期しないエラーが発生しました。')
+    } catch (e: any) {
+      setCopyError('予期しないエラー: ' + (e?.message || String(e)))
     } finally {
       setCopyLoading(false)
     }
