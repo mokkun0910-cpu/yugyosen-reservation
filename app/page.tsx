@@ -15,6 +15,46 @@ type DayStatus = 'available' | 'full' | 'noPlan' | 'none'
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
+function PlanCard({
+  plan,
+  dateId,
+  onBook,
+}: {
+  plan: any
+  dateId: string
+  onBook: (planId: string, planName: string, members: number) => void
+}) {
+  const [members, setMembers] = useState(1)
+  const maxSeats = plan.capacity
+
+  return (
+    <div className="card border-ocean-200 bg-ocean-50">
+      <div className="font-bold text-gray-800 text-sm mb-1">{plan.name}</div>
+      <div className="text-xs text-gray-500 mb-3">
+        🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
+      </div>
+      <div className="flex items-center gap-2 mb-3">
+        <label className="text-xs font-bold text-gray-600 shrink-0">参加人数：</label>
+        <select
+          className="input-field py-1.5 text-sm"
+          value={members}
+          onChange={(e) => setMembers(Number(e.target.value))}
+        >
+          {Array.from({ length: maxSeats }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>{n}名</option>
+          ))}
+        </select>
+      </div>
+      <button
+        onClick={() => onBook(plan.id, plan.name, members)}
+        className="btn-primary py-2 text-sm"
+      >
+        この内容で予約する →
+      </button>
+    </div>
+  )
+}
+
 export default function HomePage() {
   const router = useRouter()
   const [dates, setDates] = useState<DepartureDate[]>([])
@@ -239,25 +279,19 @@ export default function HomePage() {
                 <h3 className="text-sm font-bold text-gray-700 mb-2">
                   📅 {selectedDate.date.replace(/-/g, '/').slice(0, 10)} のプラン
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {selectedDate.plans
                     .filter((p: any) => !p.is_locked)
                     .map((plan: any) => (
-                      <button
+                      <PlanCard
                         key={plan.id}
-                        onClick={() => router.push(`/reserve/${selectedDate.id}`)}
-                        className="w-full card text-left hover:border-ocean-400 hover:shadow-md transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-bold text-gray-800 text-sm">{plan.name}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">
-                              🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
-                            </div>
-                          </div>
-                          <span className="badge-available">予約する →</span>
-                        </div>
-                      </button>
+                        plan={plan}
+                        dateId={selectedDate.id}
+                        onBook={(planId, planName, members) => {
+                          const params = new URLSearchParams({ planId, planName, members: String(members) })
+                          router.push(`/reserve/${selectedDate.id}/form?${params.toString()}`)
+                        }}
+                      />
                     ))}
                   {selectedDate.plans.filter((p: any) => !p.is_locked).length === 0 && (
                     <button
