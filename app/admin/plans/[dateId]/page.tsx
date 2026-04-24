@@ -26,7 +26,7 @@ export default function AdminPlansPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (plans.length >= 3) { setError('1日に設定できるプランは最大3つです。'); return }
+    if (plans.length >= 5) { setError('1日に設定できるプランは最大5つです。'); return }
     if (!form.name || !form.target_fish || !form.departure_time || !form.price) {
       setError('すべての項目を入力してください。'); return
     }
@@ -79,9 +79,9 @@ export default function AdminPlansPage() {
         ))}
       </div>
 
-      {plans.length < 3 && (
+      {plans.length < 5 && (
         <form onSubmit={handleAdd} className="card">
-          <p className="font-bold text-sm mb-3">プランを追加する（残り{3 - plans.length}枠）</p>
+          <p className="font-bold text-sm mb-3">プランを追加する（残り{5 - plans.length}枠）</p>
           <div className="space-y-3">
             <div>
               <label className="label">プラン名</label>
