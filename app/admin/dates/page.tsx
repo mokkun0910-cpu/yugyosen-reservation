@@ -102,10 +102,10 @@ export default function AdminDatesPage() {
         const newPlans = sourcePlans.map((p: any) => ({
           departure_date_id: targetDateId,
           name: p.name,
+          target_fish: p.target_fish,
           departure_time: p.departure_time,
           capacity: p.capacity,
           price: p.price,
-          description: p.description,
           is_locked: false,
         }))
         const { error: planError } = await supabase.from('plans').insert(newPlans)
