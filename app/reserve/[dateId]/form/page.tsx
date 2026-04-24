@@ -1,9 +1,9 @@
 'use client'
+import { Suspense } from 'react'
 import { useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { formatPrice } from '@/lib/utils'
 
-export default function ReserveFormPage() {
+function ReserveFormContent() {
   const router = useRouter()
   const { dateId } = useParams<{ dateId: string }>()
   const searchParams = useSearchParams()
@@ -131,5 +131,13 @@ export default function ReserveFormPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function ReserveFormPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">読み込み中...</div>}>
+      <ReserveFormContent />
+    </Suspense>
   )
 }

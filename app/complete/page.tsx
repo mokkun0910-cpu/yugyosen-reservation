@@ -1,7 +1,8 @@
 'use client'
+import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-export default function CompletePage() {
+function CompleteContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const reservationNumber = searchParams.get('reservationNumber') || ''
@@ -59,5 +60,13 @@ export default function CompletePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CompletePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">読み込み中...</div>}>
+      <CompleteContent />
+    </Suspense>
   )
 }
