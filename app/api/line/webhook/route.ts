@@ -22,52 +22,24 @@ export async function POST(req: NextRequest) {
   const events = body.events || []
 
   for (const event of events) {
-    // followイベント：ユーザーが友だち追加したときにLINE User IDを返信
+    // followイベント：友だち追加時の歓迎メッセージ
     if (event.type === 'follow') {
-      const userId = event.source?.userId
-      if (userId) {
-        await fetch('https://api.line.me/v2/bot/message/reply', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-          },
-          body: JSON.stringify({
-            replyToken: event.replyToken,
-            messages: [
-              {
-                type: 'text',
-                text: `友だち追加ありがとうございます！🎣\n\nあなたのLINE User IDは以下の通りです。\n\n${userId}\n\n予約フォームの「LINE ユーザーID」欄にこのIDを入力すると、予約通知がLINEで届きます。`,
-              },
-            ],
-          }),
-        })
-      }
-    }
-
-    // messageイベント：ユーザーがメッセージを送ってきたときにIDを返す
-    if (event.type === 'message' && event.message?.type === 'text') {
-      const userId = event.source?.userId
-      const text: string = event.message.text || ''
-
-      if (text.includes('ID') || text.includes('id') || text.includes('ＩＤ')) {
-        await fetch('https://api.line.me/v2/bot/message/reply', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-          },
-          body: JSON.stringify({
-            replyToken: event.replyToken,
-            messages: [
-              {
-                type: 'text',
-                text: `あなたのLINE User IDは以下の通りです。\n\n${userId}\n\n予約フォームの「LINE ユーザーID」欄にこのIDを入力してください。`,
-              },
-            ],
-          }),
-        })
-      }
+      await fetch('https://api.line.me/v2/bot/message/reply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify({
+          replyToken: event.replyToken,
+          messages: [
+            {
+              type: 'text',
+              text: `遊漁船 王丸へのご登録ありがとうございます！🎣\n\nオンライン予約・キャンセルのご案内はリッチメニューからどうぞ。\n\n出航情報などもLINEにてお届けします。よろしくお願いします！\n\n遊漁船 王丸`,
+            },
+          ],
+        }),
+      })
     }
   }
 
