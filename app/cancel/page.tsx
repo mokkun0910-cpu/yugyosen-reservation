@@ -33,6 +33,7 @@ export default function CancelPage() {
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [fromLiff, setFromLiff] = useState(false)
 
   // ページ読み込み時にLIFFでUser IDを取得して自動検索
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function CancelPage() {
           const profile = await liff.getProfile()
           const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
           const data = await res.json()
+          setFromLiff(true)
           if (res.ok && data.reservations?.length > 0) {
             setReservations(data.reservations)
             setStep('select')
@@ -176,10 +178,8 @@ export default function CancelPage() {
         <button
           onClick={() => {
             if (step === 'confirm') setStep('select')
-            else if (step === 'select' && reservations.length > 0) {
-              // LINEログイン経由なら戻れない
-              closeWindow()
-            } else if (step === 'select') setStep('phone')
+            else if (step === 'select' && fromLiff) closeWindow()
+            else if (step === 'select') setStep('phone')
             else router.back()
           }}
           className="text-ocean-200 text-sm mb-1 block">← 戻る</button>
