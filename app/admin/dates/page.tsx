@@ -26,6 +26,11 @@ export default function AdminDatesPage() {
   const [departureLoading, setDepartureLoading] = useState(false)
   const [departureResult, setDepartureResult] = useState<{ notified: number } | null>(null)
 
+  // お礼メッセージ送信用の状態
+  const [thankTarget, setThankTarget] = useState<any | null>(null)
+  const [thankLoading, setThankLoading] = useState(false)
+  const [thankResult, setThankResult] = useState<{ notified: number } | null>(null)
+
   async function fetchDates() {
     const today = new Date().toISOString().slice(0, 10)
     const { data } = await supabase
@@ -56,6 +61,21 @@ export default function AdminDatesPage() {
     if (!confirm('この出船日を削除しますか？')) return
     await supabase.from('departure_dates').delete().eq('id', id)
     await fetchDates()
+  }
+
+  async function handleThankYou() {
+    if (!thankTarget) return
+    setThankLoading(true)
+    const res = await fetch('/api/admin/thank-you', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateId: thankTarget.id }),
+    })
+    const data = await res.json()
+    setThankLoading(false)
+    if (data.ok) {
+      setThankResult({ notified: data.notified })
+    }
   }
 
   async function handleDepartureConfirm() {
@@ -210,14 +230,18 @@ export default function AdminDatesPage() {
               </div>
             </div>
             {/* 通知ボタン（目立つ大きめ） */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-3 gap-2 mb-2">
               <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
-                className="flex items-center justify-center gap-1.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                ⚓ 出航決定を通知
+                className="flex flex-col items-center justify-center gap-0.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                <span>⚓</span><span>出航決定</span>
               </button>
               <button onClick={() => { setWeatherTarget(d); setWeatherResult(null) }}
-                className="flex items-center justify-center gap-1.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
-                ⛈️ 天候不良を通知
+                className="flex flex-col items-center justify-center gap-0.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
+                <span>⛈️</span><span>天候不良</span>
+              </button>
+              <button onClick={() => { setThankTarget(d); setThankResult(null) }}
+                className="flex flex-col items-center justify-center gap-0.5 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                <span>🙏</span><span>お礼送信</span>
               </button>
             </div>
             {/* サブ操作ボタン */}
@@ -337,6 +361,54 @@ export default function AdminDatesPage() {
                   <button onClick={handleWeatherCancel} disabled={weatherLoading}
                     className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold disabled:opacity-50">
                     {weatherLoading ? '送信中...' : '送信する'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* お礼メッセージモーダル */}
+      {thankTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {thankResult ? (
+              <>
+                <div className="text-center mb-4">
+                  <div className="text-4xl mb-2">✅</div>
+                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
+                  <p className="text-sm text-gray-600">
+                    {thankResult.notified}名にLINEでお礼メッセージを送信しました。
+                  </p>
+                </div>
+                <button onClick={() => setThankTarget(null)}
+                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  閉じる
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="font-bold text-base mb-1">🙏 お礼メッセージ送信</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  「{formatDateJa(thankTarget.date)}」の乗船者全員にお礼メッセージをLINEで送信します。
+                </p>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-xs text-green-800">
+                  <p className="font-bold mb-1">送信されるメッセージ：</p>
+                  <p>昨日はご乗船いただきありがとうございました！🎣</p>
+                  <p className="mt-1">【日程】{formatDateJa(thankTarget.date)}</p>
+                  <p className="mt-1">楽しんでいただけましたでしょうか？またのご乗船をお待ちしております。</p>
+                  <p className="mt-1">釣果のお写真などインスタグラムでも紹介しておりますので、よろしければフォローください📸</p>
+                  <p className="mt-1">またお会いできる日を楽しみにしています！🎣 遊漁船 王丸</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setThankTarget(null)}
+                    className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">
+                    キャンセル
+                  </button>
+                  <button onClick={handleThankYou} disabled={thankLoading}
+                    className="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-bold disabled:opacity-50">
+                    {thankLoading ? '送信中...' : '送信する'}
                   </button>
                 </div>
               </>
