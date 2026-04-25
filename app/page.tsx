@@ -291,7 +291,7 @@ export default function HomePage() {
                         dateId={selectedDate.id}
                         onBook={(planId, planName, members) => {
                           const params = new URLSearchParams({ planId, planName, members: String(members) })
-                          router.push(`/reserve/${selectedDate.id}/form?${params.toString()}`)
+                          window.location.href = `/reserve/${selectedDate.id}/form?${params.toString()}`
                         }}
                       />
                     ))}
