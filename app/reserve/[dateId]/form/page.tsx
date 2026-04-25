@@ -28,15 +28,13 @@ function ReserveFormContent() {
       const liff = liffModule.default
       liff.init({ liffId }).then(() => {
         setLiffReady(true)
-        if (liff.isInClient()) {
+        if (liff.isInClient() && liff.isLoggedIn()) {
           setIsInLiff(true)
-          if (liff.isLoggedIn()) {
-            liff.getProfile().then((profile) => {
-              setForm((prev) => ({ ...prev, lineUserId: profile.userId }))
-            })
-          } else {
-            liff.login()
-          }
+          liff.getProfile().then((profile) => {
+            setForm((prev) => ({ ...prev, lineUserId: profile.userId }))
+          }).catch(() => {
+            // プロフィール取得失敗は無視
+          })
         }
       }).catch(() => {
         setLiffReady(true)
