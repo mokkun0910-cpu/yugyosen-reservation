@@ -12,16 +12,20 @@ export default function AdminReservationsPage() {
   const [loadError, setLoadError] = useState('')
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [dbTotal, setDbTotal] = useState<number | null>(null)
+  const [statusSummary, setStatusSummary] = useState<Record<string, number> | null>(null)
 
   async function fetchReservations() {
     setRefreshing(true)
     setLoadError('')
     try {
-      const res = await fetch('/api/admin/reservations')
+      const res = await fetch('/api/admin/reservations', { cache: 'no-store' })
       const data = await res.json()
       if (data.error) { setLoadError('APIエラー: ' + data.error); return }
       setReservations(data.reservations || [])
       setTotalCount((data.reservations || []).length)
+      if (data.totalInDB !== undefined) setDbTotal(data.totalInDB)
+      if (data.statusSummary) setStatusSummary(data.statusSummary)
     } catch (e: any) {
       setLoadError('通信エラー: ' + (e?.message || String(e)))
     } finally {
@@ -59,7 +63,15 @@ export default function AdminReservationsPage() {
         </button>
       </div>
       {loadError && <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600 mb-3">{loadError}</div>}
-      {totalCount !== null && <div className="text-xs text-gray-400 mb-2">取得件数: {totalCount}件 / 表示中: {filtered.length}件</div>}
+      {dbTotal !== null && (
+        <div className="bg-gray-50 border border-gray-200 rounded p-2 text-xs text-gray-600 mb-2 space-y-0.5">
+          <div>DB合計: <strong>{dbTotal}件</strong>（キャンセル含む）</div>
+          {statusSummary && Object.entries(statusSummary).map(([k, v]) => (
+            <div key={k}>　{k}: {v as number}件</div>
+          ))}
+          <div>表示中: <strong>{filtered.length}件</strong></div>
+        </div>
+      )}
 
       <div className="mb-3">
         <input
