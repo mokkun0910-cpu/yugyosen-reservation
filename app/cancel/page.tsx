@@ -34,21 +34,28 @@ export default function CancelPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [fromLiff, setFromLiff] = useState(false)
+  const [debugMsg, setDebugMsg] = useState('')
 
   // ページ読み込み時にLIFFでUser IDを取得して自動検索
   useEffect(() => {
-    const timeout = setTimeout(() => setStep('phone'), 8000) // 8秒でタイムアウト
+    const timeout = setTimeout(() => { setStep('phone') }, 8000)
     async function tryLiff() {
       try {
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+        setDebugMsg(`LIFF_ID: ${liffId ? '✓' : '未設定'}`)
         if (!liffId) { clearTimeout(timeout); setStep('phone'); return }
         const liffModule = await import('@line/liff')
         const liff = liffModule.default
+        setDebugMsg('LIFF初期化中...')
         await liff.init({ liffId })
-        if (liff.isInClient()) {
-          if (!liff.isLoggedIn()) { liff.login(); return }
+        const inClient = liff.isInClient()
+        const loggedIn = liff.isLoggedIn()
+        setDebugMsg(`inClient:${inClient} loggedIn:${loggedIn}`)
+        if (inClient) {
+          if (!loggedIn) { liff.login(); return }
           const profile = await liff.getProfile()
           setFromLiff(true)
+          setDebugMsg(`userId取得: ${profile.userId.slice(0,8)}...`)
           const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
           const data = await res.json()
           clearTimeout(timeout)
@@ -56,7 +63,8 @@ export default function CancelPage() {
           setStep('select')
           return
         }
-      } catch (e) {
+      } catch (e: any) {
+        setDebugMsg(`エラー: ${e?.message || String(e)}`)
         console.error('LIFF init error:', e)
       }
       clearTimeout(timeout)
@@ -137,8 +145,9 @@ export default function CancelPage() {
   // ローディング中
   if (step === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center flex-col gap-3 p-4">
         <p className="text-gray-400 text-sm">読み込み中...</p>
+        {debugMsg && <p className="text-xs text-gray-400 bg-gray-100 rounded p-2 break-all">{debugMsg}</p>}
       </div>
     )
   }
