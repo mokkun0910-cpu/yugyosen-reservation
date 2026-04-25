@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import { formatDateJa } from '@/lib/utils'
 
@@ -21,9 +21,7 @@ type Reservation = {
 
 function CancelContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
-  const [step, setStep] = useState<'loading' | 'phone' | 'select' | 'confirm' | 'done'>('loading')
+  const [step, setStep] = useState<'phone' | 'select' | 'confirm' | 'done'>('phone')
 
   const [phone, setPhone] = useState('')
   const [searching, setSearching] = useState(false)
@@ -36,60 +34,6 @@ function CancelContent() {
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [fromLiff, setFromLiff] = useState(false)
-  const [debugMsg, setDebugMsg] = useState('')
-
-  // ページ読み込み時：URLパラメータのuserIdまたはLIFFで自動検索
-  useEffect(() => {
-    // URLパラメータにlineUserIdがあれば直接検索
-    if (lineUserIdFromUrl) {
-      setFromLiff(true)
-      fetch(`/api/cancel?lineUserId=${encodeURIComponent(lineUserIdFromUrl)}`)
-        .then(r => r.json())
-        .then(data => {
-          setReservations(data.reservations || [])
-          setStep('select')
-        })
-        .catch(() => setStep('phone'))
-      return
-    }
-    const timeout = setTimeout(() => { setStep('phone') }, 8000)
-    async function tryLiff() {
-      try {
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-        setDebugMsg(`LIFF_ID: ${liffId ? '✓' : '未設定'}`)
-        if (!liffId) { clearTimeout(timeout); setStep('phone'); return }
-        const liffModule = await import('@line/liff')
-        const liff = liffModule.default
-        setDebugMsg('LIFF初期化中...')
-        await liff.init({ liffId })
-        const inClient = liff.isInClient()
-        const loggedIn = liff.isLoggedIn()
-        setDebugMsg(`inClient:${inClient} loggedIn:${loggedIn}`)
-        // isInClient()がfalseでもLINE内ブラウザならログイン試行
-        if (!loggedIn) {
-          liff.login()
-          return
-        }
-        const profile = await liff.getProfile()
-        setFromLiff(true)
-        setDebugMsg(`userId取得: ${profile.userId.slice(0,8)}...`)
-        const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
-        const data = await res.json()
-        clearTimeout(timeout)
-        setReservations(res.ok ? (data.reservations || []) : [])
-        setStep('select')
-        return
-      } catch (e: any) {
-        setDebugMsg(`エラー: ${e?.message || String(e)}`)
-        console.error('LIFF init error:', e)
-      }
-      clearTimeout(timeout)
-      setStep('phone')
-    }
-    tryLiff()
-    return () => clearTimeout(timeout)
-  }, [])
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -159,16 +103,6 @@ function CancelContent() {
     window.close()
   }
 
-  // ローディング中
-  if (step === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center flex-col gap-3 p-4">
-        <p className="text-gray-400 text-sm">読み込み中...</p>
-        {debugMsg && <p className="text-xs text-gray-400 bg-gray-100 rounded p-2 break-all">{debugMsg}</p>}
-      </div>
-    )
-  }
-
   // 完了
   if (step === 'done') {
     return (
@@ -191,13 +125,9 @@ function CancelContent() {
     )
   }
 
-  // ステップ表示（phone不要の場合はselect/confirmのみ）
-  const steps = step === 'phone' || reservations.length === 0
-    ? ['phone', 'select', 'confirm']
-    : ['select', 'confirm']
-  const stepLabels = step === 'phone' || reservations.length === 0
-    ? ['電話番号', '予約を選ぶ', '確認']
-    : ['予約を選ぶ', '確認']
+  const stepLabels = ['電話番号', '予約を選ぶ', '確認']
+  const stepKeys = ['phone', 'select', 'confirm']
+  const currentIdx = stepKeys.indexOf(step)
 
   return (
     <div className="min-h-screen">
@@ -205,7 +135,7 @@ function CancelContent() {
         <button
           onClick={() => {
             if (step === 'confirm') setStep('select')
-            else if (step === 'select' && !fromLiff) setStep('phone')
+            else if (step === 'select') setStep('phone')
             else router.push('/')
           }}
           className="text-ocean-200 text-sm mb-1 block">← 戻る</button>
@@ -216,25 +146,24 @@ function CancelContent() {
 
         {/* ステップインジケーター */}
         <div className="flex items-center gap-2 mb-5">
-          {steps.map((s, i) => {
-            const current = steps.indexOf(step === 'loading' ? steps[0] : step)
-            const done = i < current
-            const active = i === current
+          {stepLabels.map((label, i) => {
+            const done = i < currentIdx
+            const active = i === currentIdx
             return (
-              <div key={s} className="flex items-center gap-1">
+              <div key={label} className="flex items-center gap-1">
                 {i > 0 && <div className="h-px w-4 bg-gray-200 mr-1" />}
                 <div className={`flex items-center gap-1 text-xs font-bold ${active ? 'text-ocean-700' : done ? 'text-green-600' : 'text-gray-400'}`}>
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${active ? 'bg-ocean-600 text-white' : done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                     {done ? '✓' : i + 1}
                   </span>
-                  {stepLabels[i]}
+                  {label}
                 </div>
               </div>
             )
           })}
         </div>
 
-        {/* Step 1: 電話番号入力（LINEログインできなかった場合） */}
+        {/* Step 1: 電話番号入力 */}
         {step === 'phone' && (
           <>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
@@ -359,7 +288,6 @@ function CancelContent() {
             {cancelType === 'member' && selectedMemberId && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
                 <p>「{selectedRes.members.find(m => m.id === selectedMemberId)?.name}」を乗船者から外します。</p>
-                <p className="text-xs mt-1">この操作は即座に反映されます。</p>
               </div>
             )}
             {cancelType === 'full' && (
