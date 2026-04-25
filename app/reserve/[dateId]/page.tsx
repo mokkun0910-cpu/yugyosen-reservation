@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa, formatTime, formatPrice } from '@/lib/utils'
 
@@ -15,9 +16,12 @@ type Plan = {
   reservedCount: number
 }
 
-export default function PlanSelectPage() {
+function PlanSelectContent() {
   const router = useRouter()
   const { dateId } = useParams<{ dateId: string }>()
+  const searchParams = useSearchParams()
+  const preselectedPlanId = searchParams.get('planId')
+
   const [date, setDate] = useState<string>('')
   const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,10 +59,19 @@ export default function PlanSelectPage() {
         })
       )
       setPlans(enriched)
+
+      // カレンダーから来た場合はプランを自動選択
+      if (preselectedPlanId) {
+        const found = enriched.find(p => p.id === preselectedPlanId)
+        if (found && !found.is_locked && found.reservedCount < found.capacity) {
+          setSelectedPlan(found)
+        }
+      }
+
       setLoading(false)
     }
     fetchPlans()
-  }, [dateId])
+  }, [dateId, preselectedPlanId])
 
   function isSelectable(plan: Plan) {
     if (plan.is_locked) return false
@@ -83,7 +96,7 @@ export default function PlanSelectPage() {
   return (
     <div className="min-h-screen">
       <div className="page-header">
-        <button onClick={() => router.back()} className="text-ocean-200 text-sm mb-1 block">
+        <button onClick={() => router.push('/')} className="text-ocean-200 text-sm mb-1 block">
           ← 戻る
         </button>
         <div className="font-bold text-lg">プランを選ぶ</div>
@@ -183,5 +196,13 @@ export default function PlanSelectPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PlanSelectPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">読み込み中...</div>}>
+      <PlanSelectContent />
+    </Suspense>
   )
 }
