@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 function ReserveFormContent() {
@@ -9,38 +9,17 @@ function ReserveFormContent() {
   const planId = searchParams.get('planId') || ''
   const planName = searchParams.get('planName') || ''
   const members = Number(searchParams.get('members') || 1)
+  const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
 
   const [form, setForm] = useState({
     name: '',
     phone: '',
-    lineUserId: '',
+    lineUserId: lineUserIdFromUrl,
   })
-  const [liffReady, setLiffReady] = useState(false)
-  const [isInLiff, setIsInLiff] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-    if (!liffId) return
-
-    import('@line/liff').then((liffModule) => {
-      const liff = liffModule.default
-      liff.init({ liffId }).then(() => {
-        setLiffReady(true)
-        if (liff.isInClient() && liff.isLoggedIn()) {
-          setIsInLiff(true)
-          liff.getProfile().then((profile) => {
-            setForm((prev) => ({ ...prev, lineUserId: profile.userId }))
-          }).catch(() => {
-            // プロフィール取得失敗は無視
-          })
-        }
-      }).catch(() => {
-        setLiffReady(true)
-      })
-    })
-  }, [])
+  const isLinked = !!lineUserIdFromUrl
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -123,8 +102,7 @@ function ReserveFormContent() {
             />
           </div>
 
-          {/* LINEアプリ内なら自動取得・表示のみ。ブラウザからは手入力欄を表示 */}
-          {isInLiff ? (
+          {isLinked ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
               ✅ LINEアカウントと連携済みです。出航情報などをLINEでお届けします。
             </div>

@@ -3,6 +3,27 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+// LIFF初期化・LINE User ID取得
+let cachedLineUserId = ''
+async function initLiff(): Promise<string> {
+  if (cachedLineUserId) return cachedLineUserId
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  if (!liffId) return ''
+  try {
+    const liffModule = await import('@line/liff')
+    const liff = liffModule.default
+    await liff.init({ liffId })
+    if (liff.isInClient() && liff.isLoggedIn()) {
+      const profile = await liff.getProfile()
+      cachedLineUserId = profile.userId
+      return cachedLineUserId
+    }
+  } catch {
+    // 無視
+  }
+  return ''
+}
+
 type DepartureDate = {
   id: string
   date: string
@@ -62,6 +83,11 @@ export default function HomePage() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()) // 0-indexed
   const [selectedDate, setSelectedDate] = useState<DepartureDate | null>(null)
+  const [lineUserId, setLineUserId] = useState('')
+
+  useEffect(() => {
+    initLiff().then((uid) => { if (uid) setLineUserId(uid) })
+  }, [])
 
   useEffect(() => {
     async function fetchDates() {
@@ -291,6 +317,7 @@ export default function HomePage() {
                         dateId={selectedDate.id}
                         onBook={(planId, planName, members) => {
                           const params = new URLSearchParams({ planId, planName, members: String(members) })
+                          if (lineUserId) params.set('lineUserId', lineUserId)
                           window.location.href = `/reserve/${selectedDate.id}/form?${params.toString()}`
                         }}
                       />
