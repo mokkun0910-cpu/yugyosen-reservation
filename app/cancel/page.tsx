@@ -232,7 +232,7 @@ export default function CancelPage() {
                         onChange={() => setCancelType('member')} className="mt-1" />
                       <div className="flex-1">
                         <div className="font-bold text-sm text-gray-800">👤 特定の乗船者だけキャンセル</div>
-                        <div className="text-xs text-gray-500 mt-1">1名分だけキャンセルして残りの方は予約を継続します</div>
+                        <div className="text-xs text-gray-500 mt-1">1名分だけキャンセルして残りの方は予約を継続します。船長の承認後に確定します。</div>
 
                         {cancelType === 'member' && (
                           <div className="mt-3 space-y-2">
