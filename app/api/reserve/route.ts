@@ -5,7 +5,10 @@ import { generateReservationNumber } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { planId, representativeName, representativePhone, lineUserId, totalMembers } = body
+  const {
+    planId, representativeName, representativePhone, lineUserId, totalMembers,
+    representativeBirthDate, representativeAddress, representativeEmergencyName, representativeEmergencyPhone,
+  } = body
 
   if (!planId || !representativeName || !representativePhone || !totalMembers) {
     return NextResponse.json({ error: '必須項目が不足しています。' }, { status: 400 })
@@ -61,6 +64,19 @@ export async function POST(req: NextRequest) {
   }))
   const { data: members } = await db.from('members').insert(memberRecords).select()
 
+  // 代表者の乗船情報を自動登録
+  if (members && members.length > 0 && representativeBirthDate) {
+    await db.from('members').update({
+      name: representativeName,
+      birth_date: representativeBirthDate,
+      address: representativeAddress,
+      phone: representativePhone,
+      emergency_contact_name: representativeEmergencyName,
+      emergency_contact_phone: representativeEmergencyPhone,
+      is_completed: true,
+    }).eq('id', members[0].id)
+  }
+
   // 同日の他プランをロック（最初の予約の場合）
   if (currentCount === 0) {
     await db
@@ -70,17 +86,18 @@ export async function POST(req: NextRequest) {
       .neq('id', planId)
   }
 
-  // LINE通知（代表者へ）
+  // LINE通知（代表者へ）- 同行者分のリンクのみ送信
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
   if (lineUserId && members) {
-    const memberLinks = members.map((m: any) => m.input_token)
+    const companionMembers = representativeBirthDate ? members.slice(1) : members
+    const memberLinks = companionMembers.map((m: any) => m.input_token)
     await sendReservationPending(lineUserId, {
       reservationNumber,
       planName: plan.name,
       date: (plan.departure_dates as any).date,
       departureTime: plan.departure_time,
       totalMembers,
-      memberLinks,
+      memberLinks: memberLinks,
       appUrl,
     }).catch(console.error)
   }
