@@ -90,13 +90,9 @@ export default function HomePage() {
       if (uid) {
         setLineUserId(uid)
         // ?action=cancel でキャンセルページへリダイレクト
-        // LIFFはクエリパラメータをliff.stateにエンコードするため両方チェック
         if (typeof window !== 'undefined') {
-          const raw = new URLSearchParams(window.location.search)
-          const liffState = raw.get('liff.state') || ''
-          const decoded = new URLSearchParams(decodeURIComponent(liffState))
-          const action = raw.get('action') || decoded.get('action')
-          if (action === 'cancel') {
+          const href = window.location.href
+          if (href.includes('action=cancel') || href.includes('action%3Dcancel') || href.includes('action%3dcancel')) {
             window.location.href = `/cancel?lineUserId=${encodeURIComponent(uid)}`
           }
         }
