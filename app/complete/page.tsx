@@ -59,8 +59,7 @@ function CompleteContent() {
         )}
 
         <div className="text-center">
-          <p className="text-sm text-gray-500 mb-1">キャンセルは予約番号が必要です</p>
-          <p className="text-sm font-bold text-gray-700">予約番号：{reservationNumber}</p>
+          <p className="text-sm text-gray-500">キャンセルは予約時に登録した電話番号で申請できます</p>
         </div>
 
         <div className="mt-6">
