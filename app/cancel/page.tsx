@@ -178,9 +178,8 @@ export default function CancelPage() {
         <button
           onClick={() => {
             if (step === 'confirm') setStep('select')
-            else if (step === 'select' && fromLiff) closeWindow()
-            else if (step === 'select') setStep('phone')
-            else router.back()
+            else if (step === 'select' && !fromLiff) setStep('phone')
+            else router.push('/')
           }}
           className="text-ocean-200 text-sm mb-1 block">← 戻る</button>
         <div className="font-bold text-lg">キャンセル申請</div>
