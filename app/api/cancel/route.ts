@@ -4,19 +4,37 @@ import { sendCancelRequestToCaptain } from '@/lib/line'
 import { formatDateJa } from '@/lib/utils'
 
 // 電話番号を正規化（数字のみ）してバリエーションを生成
+function toHalf(str: string): string {
+  return str
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[－−‐―]/g, '-')
+}
+function toFull(str: string): string {
+  return str
+    .replace(/[0-9]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xFEE0))
+    .replace(/-/g, '－')
+}
 function phoneVariants(input: string): string[] {
-  // 全角→半角変換
-  const half = input.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+  const half = toHalf(input.trim())
   const digits = half.replace(/\D/g, '')
-  const variants = new Set<string>([input.trim(), half.trim(), digits])
+  const variants = new Set<string>([
+    input.trim(),
+    half,
+    digits,
+    toFull(digits),
+  ])
   // 11桁（例: 09012345678）→ 090-1234-5678
   if (digits.length === 11) {
-    variants.add(`${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`)
+    const fmt = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`
+    variants.add(fmt)
+    variants.add(toFull(fmt))
   }
-  // 10桁（例: 0312345678）→ 03-1234-5678
+  // 10桁（例: 0312345678）→ 03-1234-5678 or 031-234-5678
   if (digits.length === 10) {
-    variants.add(`${digits.slice(0,2)}-${digits.slice(2,6)}-${digits.slice(6)}`)
-    variants.add(`${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`)
+    const fmt1 = `${digits.slice(0,2)}-${digits.slice(2,6)}-${digits.slice(6)}`
+    const fmt2 = `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`
+    variants.add(fmt1); variants.add(toFull(fmt1))
+    variants.add(fmt2); variants.add(toFull(fmt2))
   }
   return Array.from(variants)
 }
