@@ -8,6 +8,7 @@ export default function AdminReservationsPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [members, setMembers] = useState<Record<string, any[]>>({})
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'pending_members'>('all')
+  const [dateFilter, setDateFilter] = useState('')
 
   useEffect(() => {
     async function fetchReservations() {
@@ -28,11 +29,27 @@ export default function AdminReservationsPage() {
     setExpanded(reservationId)
   }
 
-  const filtered = filter === 'all' ? reservations : reservations.filter((r) => r.status === filter)
+  const filtered = reservations
+    .filter((r) => filter === 'all' || r.status === filter)
+    .filter((r) => !dateFilter || r.plans?.departure_dates?.date === dateFilter)
 
   return (
     <div className="p-4">
       <h2 className="section-title mt-2">予約一覧</h2>
+
+      <div className="mb-3">
+        <input
+          type="date"
+          className="input-field text-sm"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+        />
+        {dateFilter && (
+          <button onClick={() => setDateFilter('')} className="ml-2 text-xs text-gray-500 underline">
+            クリア
+          </button>
+        )}
+      </div>
 
       <div className="flex gap-2 mb-4">
         {(['all', 'confirmed', 'pending_members'] as const).map((f) => (

@@ -23,35 +23,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '出船日が見つかりません。' }, { status: 404 })
   }
 
-  // その日の確定済み予約を全て取得（プラン＋乗船者含む）
-  const { data: reservations } = await db
+  // その日のプランIDを取得
+  const { data: plans } = await db
+    .from('plans')
+    .select('id, name, departure_time')
+    .eq('departure_date_id', dateId)
+
+  const planIds = (plans || []).map((p: any) => p.id)
+
+  if (planIds.length === 0) {
+    const rows = [{
+      '出船日': departureDate.date, '釣り物': '', '出船時刻': '', '予約番号': '',
+      '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
+      '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '', '入力状況': '',
+    }]
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    XLSX.utils.book_append_sheet(wb, ws, '乗船名簿')
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    const filename = `乗船名簿_${departureDate.date}.xlsx`
+    return new NextResponse(buf, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      },
+    })
+  }
+
+  // プランIDに紐づく予約を取得
+  const { data: reservationRows } = await db
     .from('reservations')
-    .select(`
-      id,
-      reservation_number,
-      representative_name,
-      representative_phone,
-      total_members,
-      status,
-      plans (
-        name,
-        departure_time
-      ),
-      members (
-        name,
-        birth_date,
-        address,
-        phone,
-        emergency_contact_name,
-        emergency_contact_phone,
-        is_completed
-      )
-    `)
-    .eq('plans.departure_date_id', dateId)
+    .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id')
+    .in('plan_id', planIds)
     .neq('status', 'cancelled')
 
-  // 有効な予約のみフィルター（プランがその日のもの）
-  const validReservations = (reservations || []).filter((r: any) => r.plans !== null)
+  // 各予約の乗船者を取得
+  const validReservations: any[] = []
+  for (const r of reservationRows || []) {
+    const plan = (plans || []).find((p: any) => p.id === r.plan_id)
+    const { data: members } = await db
+      .from('members')
+      .select('name, birth_date, address, phone, emergency_contact_name, emergency_contact_phone, is_completed')
+      .eq('reservation_id', r.id)
+    validReservations.push({ ...r, plans: plan || null, members: members || [] })
+  }
 
   const date = departureDate.date
 
