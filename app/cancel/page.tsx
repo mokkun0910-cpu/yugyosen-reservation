@@ -37,32 +37,33 @@ export default function CancelPage() {
 
   // ページ読み込み時にLIFFでUser IDを取得して自動検索
   useEffect(() => {
+    const timeout = setTimeout(() => setStep('phone'), 8000) // 8秒でタイムアウト
     async function tryLiff() {
       try {
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-        if (!liffId) { setStep('phone'); return }
+        if (!liffId) { clearTimeout(timeout); setStep('phone'); return }
         const liffModule = await import('@line/liff')
         const liff = liffModule.default
         await liff.init({ liffId })
-        if (liff.isInClient() && liff.isLoggedIn()) {
+        if (liff.isInClient()) {
+          if (!liff.isLoggedIn()) { liff.login(); return }
           const profile = await liff.getProfile()
+          setFromLiff(true)
           const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
           const data = await res.json()
-          setFromLiff(true)
-          if (res.ok && data.reservations?.length > 0) {
-            setReservations(data.reservations)
-            setStep('select')
-            return
-          }
-          // 予約が見つからない場合もselectに遷移してメッセージ表示
-          setReservations([])
+          clearTimeout(timeout)
+          setReservations(res.ok ? (data.reservations || []) : [])
           setStep('select')
           return
         }
-      } catch {}
+      } catch (e) {
+        console.error('LIFF init error:', e)
+      }
+      clearTimeout(timeout)
       setStep('phone')
     }
     tryLiff()
+    return () => clearTimeout(timeout)
   }, [])
 
   async function handleSearch(e: React.FormEvent) {
