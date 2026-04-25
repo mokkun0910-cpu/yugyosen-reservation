@@ -12,20 +12,20 @@ export default function AdminReservationsPage() {
 
   useEffect(() => {
     async function fetchReservations() {
-      const { data } = await supabase
-        .from('reservations')
-        .select('*, plans(name, departure_time, departure_dates(date))')
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false })
-      setReservations(data || [])
+      // サービスロールキー使用のAPIから取得（RLSをバイパスして全件取得）
+      const res = await fetch('/api/admin/reservations')
+      const data = await res.json()
+      setReservations(data.reservations || [])
     }
     fetchReservations()
   }, [])
 
   async function loadMembers(reservationId: string) {
     if (members[reservationId]) { setExpanded(expanded === reservationId ? null : reservationId); return }
-    const { data } = await supabase.from('members').select('*').eq('reservation_id', reservationId)
-    setMembers({ ...members, [reservationId]: data || [] })
+    // 乗船者もAPIから取得
+    const res = await fetch(`/api/admin/members?reservationId=${reservationId}`)
+    const data = await res.json()
+    setMembers({ ...members, [reservationId]: data.members || [] })
     setExpanded(reservationId)
   }
 
