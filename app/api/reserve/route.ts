@@ -86,20 +86,39 @@ export async function POST(req: NextRequest) {
       .neq('id', planId)
   }
 
-  // LINE通知（代表者へ）- 同行者分のリンクのみ送信
+  // 1名予約 かつ 代表者情報入力済みの場合は即確定
+  const companionMembers = representativeBirthDate ? (members || []).slice(1) : (members || [])
+  const hasCompanions = companionMembers.length > 0
+  if (!hasCompanions) {
+    await db.from('reservations').update({ status: 'confirmed' }).eq('id', reservation.id)
+  }
+
+  // LINE通知（代表者へ）
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-  if (lineUserId && members) {
-    const companionMembers = representativeBirthDate ? members.slice(1) : members
-    const memberLinks = companionMembers.map((m: any) => m.input_token)
-    await sendReservationPending(lineUserId, {
-      reservationNumber,
-      planName: plan.name,
-      date: (plan.departure_dates as any).date,
-      departureTime: plan.departure_time,
-      totalMembers,
-      memberLinks: memberLinks,
-      appUrl,
-    }).catch(console.error)
+  if (lineUserId) {
+    if (!hasCompanions) {
+      // 1名：予約確定メッセージ
+      await sendReservationConfirmed(lineUserId, {
+        reservationNumber,
+        planName: plan.name,
+        date: (plan.departure_dates as any).date,
+        departureTime: plan.departure_time,
+        totalMembers,
+        appUrl,
+      }).catch(console.error)
+    } else if (members) {
+      // 複数名：同行者リンク付きメッセージ
+      const memberLinks = companionMembers.map((m: any) => m.input_token)
+      await sendReservationPending(lineUserId, {
+        reservationNumber,
+        planName: plan.name,
+        date: (plan.departure_dates as any).date,
+        departureTime: plan.departure_time,
+        totalMembers,
+        memberLinks,
+        appUrl,
+      }).catch(console.error)
+    }
   }
 
   // LINE通知（船長へ）
