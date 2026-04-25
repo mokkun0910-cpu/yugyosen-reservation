@@ -124,6 +124,12 @@ export default function AdminDatesPage() {
     }
   }
 
+  async function unlockPlans(dateId: string) {
+    await supabase.from('plans').update({ is_locked: false }).eq('departure_date_id', dateId)
+    await fetchDates()
+    alert('プランのロックを解除しました。')
+  }
+
   function openCopyModal(d: any) {
     setCopySource(d)
     setCopyTargetDate('')
@@ -269,6 +275,10 @@ export default function AdminDatesPage() {
                 className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
                 📥 乗船名簿
               </a>
+              <button onClick={() => unlockPlans(d.id)}
+                className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg font-medium">
+                🔓 ロック解除
+              </button>
               <button onClick={() => openCopyModal(d)}
                 className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg font-medium">
                 📋 コピー作成

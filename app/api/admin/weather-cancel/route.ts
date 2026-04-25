@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
     const reservationIds = (reservations as any[]).map((r) => r.id)
     await db.from('reservations').update({ status: 'cancelled' }).in('id', reservationIds)
     await db.from('departure_dates').update({ is_open: false }).eq('id', dateId)
+    // プランのロックを全解除
+    await db.from('plans').update({ is_locked: false }).in('id', planIds)
 
     const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN
     if (!lineToken) {
