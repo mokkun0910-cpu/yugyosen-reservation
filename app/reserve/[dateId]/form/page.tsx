@@ -1,6 +1,5 @@
 'use client'
-import { Suspense } from 'react'
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 function ReserveFormContent() {
@@ -16,8 +15,34 @@ function ReserveFormContent() {
     phone: '',
     lineUserId: '',
   })
+  const [liffReady, setLiffReady] = useState(false)
+  const [isInLiff, setIsInLiff] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+    if (!liffId) return
+
+    import('@line/liff').then((liffModule) => {
+      const liff = liffModule.default
+      liff.init({ liffId }).then(() => {
+        setLiffReady(true)
+        if (liff.isInClient()) {
+          setIsInLiff(true)
+          if (liff.isLoggedIn()) {
+            liff.getProfile().then((profile) => {
+              setForm((prev) => ({ ...prev, lineUserId: profile.userId }))
+            })
+          } else {
+            liff.login()
+          }
+        }
+      }).catch(() => {
+        setLiffReady(true)
+      })
+    })
+  }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -100,22 +125,29 @@ function ReserveFormContent() {
             />
           </div>
 
-          <div>
-            <label className="label">
-              LINE ユーザーID
-              <span className="text-gray-400 text-xs ml-1">（任意・通知を受け取る場合）</span>
-            </label>
-            <input
-              className="input-field"
-              name="lineUserId"
-              value={form.lineUserId}
-              onChange={handleChange}
-              placeholder="LINEのユーザーID"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              ※ LINEのプロフィール画面で確認できます
-            </p>
-          </div>
+          {/* LINEアプリ内なら自動取得・表示のみ。ブラウザからは手入力欄を表示 */}
+          {isInLiff ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+              ✅ LINEアカウントと連携済みです。出航情報などをLINEでお届けします。
+            </div>
+          ) : (
+            <div>
+              <label className="label">
+                LINE ユーザーID
+                <span className="text-gray-400 text-xs ml-1">（任意・通知を受け取る場合）</span>
+              </label>
+              <input
+                className="input-field"
+                name="lineUserId"
+                value={form.lineUserId}
+                onChange={handleChange}
+                placeholder="LINEのユーザーID"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                ※ 公式LINEから予約すると自動で連携されます
+              </p>
+            </div>
+          )}
 
           {error && <p className="error-text">{error}</p>}
 
