@@ -86,7 +86,18 @@ export default function HomePage() {
   const [lineUserId, setLineUserId] = useState('')
 
   useEffect(() => {
-    initLiff().then((uid) => { if (uid) setLineUserId(uid) })
+    initLiff().then((uid) => {
+      if (uid) {
+        setLineUserId(uid)
+        // ?action=cancel でキャンセルページへリダイレクト
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search)
+          if (params.get('action') === 'cancel') {
+            window.location.href = `/cancel?lineUserId=${encodeURIComponent(uid)}`
+          }
+        }
+      }
+    })
   }, [])
 
   useEffect(() => {

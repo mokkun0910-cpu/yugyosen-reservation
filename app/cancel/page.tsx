@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { formatDateJa } from '@/lib/utils'
 
 type Member = { id: string; name: string; phone: string; is_completed: boolean }
@@ -18,8 +19,10 @@ type Reservation = {
   myMemberId: string | null
 }
 
-export default function CancelPage() {
+function CancelContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
   const [step, setStep] = useState<'loading' | 'phone' | 'select' | 'confirm' | 'done'>('loading')
 
   const [phone, setPhone] = useState('')
@@ -36,8 +39,20 @@ export default function CancelPage() {
   const [fromLiff, setFromLiff] = useState(false)
   const [debugMsg, setDebugMsg] = useState('')
 
-  // ページ読み込み時にLIFFでUser IDを取得して自動検索
+  // ページ読み込み時：URLパラメータのuserIdまたはLIFFで自動検索
   useEffect(() => {
+    // URLパラメータにlineUserIdがあれば直接検索
+    if (lineUserIdFromUrl) {
+      setFromLiff(true)
+      fetch(`/api/cancel?lineUserId=${encodeURIComponent(lineUserIdFromUrl)}`)
+        .then(r => r.json())
+        .then(data => {
+          setReservations(data.reservations || [])
+          setStep('select')
+        })
+        .catch(() => setStep('phone'))
+      return
+    }
     const timeout = setTimeout(() => { setStep('phone') }, 8000)
     async function tryLiff() {
       try {
@@ -366,5 +381,13 @@ export default function CancelPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function CancelPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-gray-400 text-sm">読み込み中...</p></div>}>
+      <CancelContent />
+    </Suspense>
   )
 }
