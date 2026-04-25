@@ -87,16 +87,7 @@ export default function HomePage() {
 
   useEffect(() => {
     initLiff().then((uid) => {
-      if (uid) {
-        setLineUserId(uid)
-        // ?action=cancel でキャンセルページへリダイレクト
-        if (typeof window !== 'undefined') {
-          const href = window.location.href
-          if (href.includes('action=cancel') || href.includes('action%3Dcancel') || href.includes('action%3dcancel')) {
-            window.location.href = `/cancel?lineUserId=${encodeURIComponent(uid)}`
-          }
-        }
-      }
+      if (uid) setLineUserId(uid)
     })
   }, [])
 
@@ -359,7 +350,17 @@ export default function HomePage() {
           </>
         )}
 
-        <div className="mt-8 p-4 bg-ocean-50 rounded-lg text-sm text-gray-600">
+        {/* 予約確認・キャンセル */}
+        <div className="mt-6">
+          <a
+            href={lineUserId ? `/cancel?lineUserId=${encodeURIComponent(lineUserId)}` : '/cancel'}
+            className="block w-full text-center py-3 px-4 rounded-xl border-2 border-ocean-300 bg-white text-ocean-700 font-bold text-sm hover:bg-ocean-50 transition-colors"
+          >
+            📋 予約確認・キャンセル
+          </a>
+        </div>
+
+        <div className="mt-4 p-4 bg-ocean-50 rounded-lg text-sm text-gray-600">
           <p className="font-bold text-ocean-800 mb-1">📞 電話でのご予約</p>
           <p>オンライン予約が難しい場合はお電話ください。</p>
         </div>
