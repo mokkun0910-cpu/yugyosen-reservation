@@ -86,9 +86,20 @@ export default function HomePage() {
   const [lineUserId, setLineUserId] = useState('')
 
   useEffect(() => {
-    initLiff().then((uid) => {
+    async function init() {
+      const uid = await initLiff()
       if (uid) setLineUserId(uid)
-    })
+      // LIFF init後にliff.stateがデコードされるため、ここでaction=cancelを確認
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('action') === 'cancel') {
+          window.location.href = uid
+            ? `/cancel?lineUserId=${encodeURIComponent(uid)}`
+            : '/cancel'
+        }
+      }
+    }
+    init()
   }, [])
 
   useEffect(() => {
