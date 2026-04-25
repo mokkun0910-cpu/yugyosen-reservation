@@ -15,7 +15,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ reservations: reservations || [] })
+    return NextResponse.json(
+      { reservations: reservations || [] },
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || String(e) }, { status: 500 })
   }
