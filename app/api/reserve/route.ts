@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { sendReservationPending, sendCaptainNotification } from '@/lib/line'
+import { sendReservationPending, sendReservationConfirmed, sendCaptainNotification } from '@/lib/line'
 import { generateReservationNumber } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
