@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // 同行者の予約IDから予約情報を取得
   let memberReservations: any[] = []
   if (memberRows && memberRows.length > 0) {
-    const resIds = [...new Set(memberRows.map((m) => m.reservation_id))]
+    const resIds = Array.from(new Set(memberRows.map((m) => m.reservation_id)))
     const { data: mRes } = await db
       .from('reservations')
       .select('id, reservation_number, representative_name, representative_phone, total_members, status, plans(name, departure_time, departure_dates(date))')
