@@ -3,6 +3,24 @@ import { createServerClient } from '@/lib/supabase'
 import { sendCancelRequestToCaptain } from '@/lib/line'
 import { formatDateJa } from '@/lib/utils'
 
+// 電話番号を正規化（数字のみ）してバリエーションを生成
+function phoneVariants(input: string): string[] {
+  // 全角→半角変換
+  const half = input.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+  const digits = half.replace(/\D/g, '')
+  const variants = new Set<string>([input.trim(), half.trim(), digits])
+  // 11桁（例: 09012345678）→ 090-1234-5678
+  if (digits.length === 11) {
+    variants.add(`${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`)
+  }
+  // 10桁（例: 0312345678）→ 03-1234-5678
+  if (digits.length === 10) {
+    variants.add(`${digits.slice(0,2)}-${digits.slice(2,6)}-${digits.slice(6)}`)
+    variants.add(`${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`)
+  }
+  return Array.from(variants)
+}
+
 // 電話番号で予約を検索（代表者 or 同行者）
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -10,12 +28,13 @@ export async function GET(req: NextRequest) {
   if (!phone) return NextResponse.json({ error: '電話番号を入力してください。' }, { status: 400 })
 
   const db = createServerClient()
+  const phones = phoneVariants(phone)
 
   // 代表者の電話番号で検索
   const { data: repReservations } = await db
     .from('reservations')
     .select('id, reservation_number, representative_name, representative_phone, total_members, status, plans(name, departure_time, departure_dates(date))')
-    .eq('representative_phone', phone)
+    .in('representative_phone', phones)
     .neq('status', 'cancelled')
     .order('created_at', { ascending: false })
 
@@ -23,7 +42,7 @@ export async function GET(req: NextRequest) {
   const { data: memberRows } = await db
     .from('members')
     .select('id, reservation_id, name, phone, is_completed')
-    .eq('phone', phone)
+    .in('phone', phones)
     .eq('is_completed', true)
 
   // 同行者の予約IDから予約情報を取得
