@@ -69,53 +69,59 @@ export default function AdminDatesPage() {
   async function handleThankYou() {
     if (!thankTarget) return
     setThankLoading(true)
-    const res = await fetch('/api/admin/thank-you', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateId: thankTarget.id }),
-    })
-    const data = await res.json()
-    setThankLoading(false)
-    if (data.error) {
-      alert('エラー: ' + data.error)
-      return
+    try {
+      const res = await fetch('/api/admin/thank-you', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId: thankTarget.id }),
+      })
+      const data = await res.json()
+      setThankLoading(false)
+      if (data.error) { alert('エラー: ' + data.error); return }
+      setThankResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
+    } catch (e: any) {
+      setThankLoading(false)
+      alert('通信エラー: ' + (e?.message || String(e)))
     }
-    setThankResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
   }
 
   async function handleDepartureConfirm() {
     if (!departureTarget) return
     setDepartureLoading(true)
-    const res = await fetch('/api/admin/departure-confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateId: departureTarget.id }),
-    })
-    const data = await res.json()
-    setDepartureLoading(false)
-    if (data.error) {
-      alert('エラー: ' + data.error)
-      return
+    try {
+      const res = await fetch('/api/admin/departure-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId: departureTarget.id }),
+      })
+      const data = await res.json()
+      setDepartureLoading(false)
+      if (data.error) { alert('エラー: ' + data.error); return }
+      setDepartureResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
+    } catch (e: any) {
+      setDepartureLoading(false)
+      alert('通信エラー: ' + (e?.message || String(e)))
     }
-    setDepartureResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
   }
 
   async function handleWeatherCancel() {
     if (!weatherTarget) return
     setWeatherLoading(true)
-    const res = await fetch('/api/admin/weather-cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateId: weatherTarget.id }),
-    })
-    const data = await res.json()
-    setWeatherLoading(false)
-    if (data.error) {
-      alert('エラー: ' + data.error)
-      return
+    try {
+      const res = await fetch('/api/admin/weather-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId: weatherTarget.id }),
+      })
+      const data = await res.json()
+      setWeatherLoading(false)
+      if (data.error) { alert('エラー: ' + data.error); return }
+      setWeatherResult({ cancelled: data.cancelled, notified: data.notified, lineUsers: data.lineUsers, errors: data.errors })
+      await fetchDates()
+    } catch (e: any) {
+      setWeatherLoading(false)
+      alert('通信エラー: ' + (e?.message || String(e)))
     }
-    setWeatherResult({ cancelled: data.cancelled, notified: data.notified, lineUsers: data.lineUsers, errors: data.errors })
-    await fetchDates()
   }
 
   function openCopyModal(d: any) {
@@ -286,15 +292,19 @@ export default function AdminDatesPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
             {departureResult ? (
               <>
-                <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">{departureResult.notified > 0 ? '✅' : '⚠️'}</div>
-                  <h3 className="font-bold text-base mb-1">送信完了</h3>
-                  <p className="text-sm text-gray-600">{departureResult.notified}名にLINEで通知しました。</p>
-                  {departureResult.total !== undefined && departureResult.lineUsers !== undefined && departureResult.lineUsers < departureResult.total && (
-                    <p className="text-xs text-gray-400 mt-1">（予約{departureResult.total}件中、LINE登録済み{departureResult.lineUsers}名）</p>
+                <div className="mb-4">
+                  <div className="text-center text-3xl mb-2">{departureResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-3 text-center">送信完了</h3>
+                  <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-500">予約件数</span><span className="font-bold">{departureResult.total ?? '-'}件</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">LINE登録済み</span><span className="font-bold">{departureResult.lineUsers ?? '-'}名</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">送信成功</span><span className={`font-bold ${departureResult.notified > 0 ? 'text-green-600' : 'text-red-500'}`}>{departureResult.notified}名</span></div>
+                  </div>
+                  {departureResult.lineUsers === 0 && (
+                    <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded p-2">LINEアプリ経由で予約されていないため送信できません。</p>
                   )}
                   {departureResult.errors && departureResult.errors.length > 0 && (
-                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">
                       {departureResult.errors.map((e, i) => <p key={i}>{e}</p>)}
                     </div>
                   )}
@@ -340,18 +350,19 @@ export default function AdminDatesPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
             {weatherResult ? (
               <>
-                <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">{weatherResult.notified > 0 ? '✅' : '⚠️'}</div>
-                  <h3 className="font-bold text-base mb-1">処理完了</h3>
-                  <p className="text-sm text-gray-600">
-                    {weatherResult.cancelled}件の予約をキャンセルし、<br />
-                    {weatherResult.notified}名にLINEで通知しました。
-                  </p>
-                  {weatherResult.lineUsers !== undefined && weatherResult.lineUsers < weatherResult.cancelled && (
-                    <p className="text-xs text-gray-400 mt-1">（LINE登録済み{weatherResult.lineUsers}名に送信）</p>
+                <div className="mb-4">
+                  <div className="text-center text-3xl mb-2">{weatherResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-3 text-center">処理完了</h3>
+                  <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-500">キャンセル件数</span><span className="font-bold">{weatherResult.cancelled}件</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">LINE登録済み</span><span className="font-bold">{weatherResult.lineUsers ?? '-'}名</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">送信成功</span><span className={`font-bold ${weatherResult.notified > 0 ? 'text-green-600' : 'text-red-500'}`}>{weatherResult.notified}名</span></div>
+                  </div>
+                  {weatherResult.lineUsers === 0 && (
+                    <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded p-2">LINEアプリ経由で予約されていないため送信できません。</p>
                   )}
                   {weatherResult.errors && weatherResult.errors.length > 0 && (
-                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">
                       {weatherResult.errors.map((e, i) => <p key={i}>{e}</p>)}
                     </div>
                   )}
@@ -398,15 +409,19 @@ export default function AdminDatesPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
             {thankResult ? (
               <>
-                <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">{thankResult.notified > 0 ? '✅' : '⚠️'}</div>
-                  <h3 className="font-bold text-base mb-1">送信完了</h3>
-                  <p className="text-sm text-gray-600">{thankResult.notified}名にLINEでお礼メッセージを送信しました。</p>
-                  {thankResult.total !== undefined && thankResult.lineUsers !== undefined && thankResult.lineUsers < thankResult.total && (
-                    <p className="text-xs text-gray-400 mt-1">（予約{thankResult.total}件中、LINE登録済み{thankResult.lineUsers}名）</p>
+                <div className="mb-4">
+                  <div className="text-center text-3xl mb-2">{thankResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-3 text-center">送信完了</h3>
+                  <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-500">予約件数</span><span className="font-bold">{thankResult.total ?? '-'}件</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">LINE登録済み</span><span className="font-bold">{thankResult.lineUsers ?? '-'}名</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">送信成功</span><span className={`font-bold ${thankResult.notified > 0 ? 'text-green-600' : 'text-red-500'}`}>{thankResult.notified}名</span></div>
+                  </div>
+                  {thankResult.lineUsers === 0 && (
+                    <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded p-2">LINEアプリ経由で予約されていないため送信できません。</p>
                   )}
                   {thankResult.errors && thankResult.errors.length > 0 && (
-                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                    <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">
                       {thankResult.errors.map((e, i) => <p key={i}>{e}</p>)}
                     </div>
                   )}
