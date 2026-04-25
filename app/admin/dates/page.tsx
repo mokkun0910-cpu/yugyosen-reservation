@@ -19,24 +19,27 @@ export default function AdminDatesPage() {
   // 天候不良キャンセル用の状態
   const [weatherTarget, setWeatherTarget] = useState<any | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
-  const [weatherResult, setWeatherResult] = useState<{ cancelled: number; notified: number } | null>(null)
+  const [weatherResult, setWeatherResult] = useState<{ cancelled: number; notified: number; lineUsers?: number; errors?: string[] } | null>(null)
 
   // 出航決定通知用の状態
   const [departureTarget, setDepartureTarget] = useState<any | null>(null)
   const [departureLoading, setDepartureLoading] = useState(false)
-  const [departureResult, setDepartureResult] = useState<{ notified: number } | null>(null)
+  const [departureResult, setDepartureResult] = useState<{ notified: number; total?: number; lineUsers?: number; errors?: string[] } | null>(null)
 
   // お礼メッセージ送信用の状態
   const [thankTarget, setThankTarget] = useState<any | null>(null)
   const [thankLoading, setThankLoading] = useState(false)
-  const [thankResult, setThankResult] = useState<{ notified: number } | null>(null)
+  const [thankResult, setThankResult] = useState<{ notified: number; total?: number; lineUsers?: number; errors?: string[] } | null>(null)
 
   async function fetchDates() {
-    const today = new Date().toISOString().slice(0, 10)
+    // 7日前から表示（お礼送信など過去日程への操作のため）
+    const past7 = new Date()
+    past7.setDate(past7.getDate() - 7)
+    const fromDate = past7.toISOString().slice(0, 10)
     const { data } = await supabase
       .from('departure_dates')
       .select('*, plans(id, name, is_locked)')
-      .gte('date', today)
+      .gte('date', fromDate)
       .order('date')
     setDates(data || [])
   }
@@ -73,9 +76,11 @@ export default function AdminDatesPage() {
     })
     const data = await res.json()
     setThankLoading(false)
-    if (data.ok) {
-      setThankResult({ notified: data.notified })
+    if (data.error) {
+      alert('エラー: ' + data.error)
+      return
     }
+    setThankResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
   }
 
   async function handleDepartureConfirm() {
@@ -88,9 +93,11 @@ export default function AdminDatesPage() {
     })
     const data = await res.json()
     setDepartureLoading(false)
-    if (data.ok) {
-      setDepartureResult({ notified: data.notified })
+    if (data.error) {
+      alert('エラー: ' + data.error)
+      return
     }
+    setDepartureResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
   }
 
   async function handleWeatherCancel() {
@@ -103,10 +110,12 @@ export default function AdminDatesPage() {
     })
     const data = await res.json()
     setWeatherLoading(false)
-    if (data.ok) {
-      setWeatherResult({ cancelled: data.cancelled, notified: data.notified })
-      await fetchDates()
+    if (data.error) {
+      alert('エラー: ' + data.error)
+      return
     }
+    setWeatherResult({ cancelled: data.cancelled, notified: data.notified, lineUsers: data.lineUsers, errors: data.errors })
+    await fetchDates()
   }
 
   function openCopyModal(d: any) {
@@ -278,11 +287,17 @@ export default function AdminDatesPage() {
             {departureResult ? (
               <>
                 <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">✅</div>
-                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
-                  <p className="text-sm text-gray-600">
-                    {departureResult.notified}名にLINEで通知しました。
-                  </p>
+                  <div className="text-4xl mb-2">{departureResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-1">送信完了</h3>
+                  <p className="text-sm text-gray-600">{departureResult.notified}名にLINEで通知しました。</p>
+                  {departureResult.total !== undefined && departureResult.lineUsers !== undefined && departureResult.lineUsers < departureResult.total && (
+                    <p className="text-xs text-gray-400 mt-1">（予約{departureResult.total}件中、LINE登録済み{departureResult.lineUsers}名）</p>
+                  )}
+                  {departureResult.errors && departureResult.errors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                      {departureResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setDepartureTarget(null)}
                   className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
@@ -326,12 +341,20 @@ export default function AdminDatesPage() {
             {weatherResult ? (
               <>
                 <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">✅</div>
-                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
+                  <div className="text-4xl mb-2">{weatherResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-1">処理完了</h3>
                   <p className="text-sm text-gray-600">
                     {weatherResult.cancelled}件の予約をキャンセルし、<br />
                     {weatherResult.notified}名にLINEで通知しました。
                   </p>
+                  {weatherResult.lineUsers !== undefined && weatherResult.lineUsers < weatherResult.cancelled && (
+                    <p className="text-xs text-gray-400 mt-1">（LINE登録済み{weatherResult.lineUsers}名に送信）</p>
+                  )}
+                  {weatherResult.errors && weatherResult.errors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                      {weatherResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setWeatherTarget(null)}
                   className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
@@ -376,11 +399,17 @@ export default function AdminDatesPage() {
             {thankResult ? (
               <>
                 <div className="text-center mb-4">
-                  <div className="text-4xl mb-2">✅</div>
-                  <h3 className="font-bold text-base mb-1">送信完了しました</h3>
-                  <p className="text-sm text-gray-600">
-                    {thankResult.notified}名にLINEでお礼メッセージを送信しました。
-                  </p>
+                  <div className="text-4xl mb-2">{thankResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <h3 className="font-bold text-base mb-1">送信完了</h3>
+                  <p className="text-sm text-gray-600">{thankResult.notified}名にLINEでお礼メッセージを送信しました。</p>
+                  {thankResult.total !== undefined && thankResult.lineUsers !== undefined && thankResult.lineUsers < thankResult.total && (
+                    <p className="text-xs text-gray-400 mt-1">（予約{thankResult.total}件中、LINE登録済み{thankResult.lineUsers}名）</p>
+                  )}
+                  {thankResult.errors && thankResult.errors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 text-left bg-red-50 rounded p-2">
+                      {thankResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setThankTarget(null)}
                   className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
