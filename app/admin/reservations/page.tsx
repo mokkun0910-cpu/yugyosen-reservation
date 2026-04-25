@@ -9,13 +9,20 @@ export default function AdminReservationsPage() {
   const [members, setMembers] = useState<Record<string, any[]>>({})
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'pending_members'>('all')
   const [dateFilter, setDateFilter] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [totalCount, setTotalCount] = useState<number | null>(null)
 
   useEffect(() => {
     async function fetchReservations() {
-      // サービスロールキー使用のAPIから取得（RLSをバイパスして全件取得）
-      const res = await fetch('/api/admin/reservations')
-      const data = await res.json()
-      setReservations(data.reservations || [])
+      try {
+        const res = await fetch('/api/admin/reservations')
+        const data = await res.json()
+        if (data.error) { setLoadError('APIエラー: ' + data.error); return }
+        setReservations(data.reservations || [])
+        setTotalCount((data.reservations || []).length)
+      } catch (e: any) {
+        setLoadError('通信エラー: ' + (e?.message || String(e)))
+      }
     }
     fetchReservations()
   }, [])
@@ -36,6 +43,8 @@ export default function AdminReservationsPage() {
   return (
     <div className="p-4">
       <h2 className="section-title mt-2">予約一覧</h2>
+      {loadError && <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600 mb-3">{loadError}</div>}
+      {totalCount !== null && <div className="text-xs text-gray-400 mb-2">DB取得件数: {totalCount}件 / 表示中: {filtered.length}件</div>}
 
       <div className="mb-3">
         <input
