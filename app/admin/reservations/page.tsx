@@ -11,19 +11,25 @@ export default function AdminReservationsPage() {
   const [dateFilter, setDateFilter] = useState('')
   const [loadError, setLoadError] = useState('')
   const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function fetchReservations() {
+    setRefreshing(true)
+    setLoadError('')
+    try {
+      const res = await fetch('/api/admin/reservations')
+      const data = await res.json()
+      if (data.error) { setLoadError('APIエラー: ' + data.error); return }
+      setReservations(data.reservations || [])
+      setTotalCount((data.reservations || []).length)
+    } catch (e: any) {
+      setLoadError('通信エラー: ' + (e?.message || String(e)))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchReservations() {
-      try {
-        const res = await fetch('/api/admin/reservations')
-        const data = await res.json()
-        if (data.error) { setLoadError('APIエラー: ' + data.error); return }
-        setReservations(data.reservations || [])
-        setTotalCount((data.reservations || []).length)
-      } catch (e: any) {
-        setLoadError('通信エラー: ' + (e?.message || String(e)))
-      }
-    }
     fetchReservations()
   }, [])
 
@@ -42,9 +48,18 @@ export default function AdminReservationsPage() {
 
   return (
     <div className="p-4">
-      <h2 className="section-title mt-2">予約一覧</h2>
+      <div className="flex items-center justify-between mt-2 mb-1">
+        <h2 className="section-title">予約一覧</h2>
+        <button
+          onClick={fetchReservations}
+          disabled={refreshing}
+          className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
+        >
+          {refreshing ? '更新中…' : '🔄 更新'}
+        </button>
+      </div>
       {loadError && <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600 mb-3">{loadError}</div>}
-      {totalCount !== null && <div className="text-xs text-gray-400 mb-2">DB取得件数: {totalCount}件 / 表示中: {filtered.length}件</div>}
+      {totalCount !== null && <div className="text-xs text-gray-400 mb-2">取得件数: {totalCount}件 / 表示中: {filtered.length}件</div>}
 
       <div className="mb-3">
         <input
