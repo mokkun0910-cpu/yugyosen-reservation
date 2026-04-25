@@ -104,11 +104,14 @@ export async function sendCancelRequestToCaptain(
 export async function sendCancelResult(
   lineUserId: string,
   approved: boolean,
-  reservationNumber: string
+  reservationNumber: string,
+  planName: string = '',
+  date: string = ''
 ) {
+  const info = `【予約番号】${reservationNumber}${planName ? `\n【釣り物】${planName}` : ''}${date ? `\n【日程】${date}` : ''}`
   const text = approved
-    ? `✅ キャンセルが承認されました。\n\n【予約番号】${reservationNumber}\n\nまたのご利用をお待ちしております。`
-    : `❌ キャンセルは却下されました。\n\n【予約番号】${reservationNumber}\n\nご不明な点はお電話にてお問い合わせください。`
+    ? `✅ キャンセルが承認されました。\n\n${info}\n\nまたのご利用をお待ちしております。`
+    : `❌ キャンセルは却下されました。\n\n${info}\n\nご不明な点はお電話にてお問い合わせください。`
 
   await sendMessage(lineUserId, [{ type: 'text', text }])
 }

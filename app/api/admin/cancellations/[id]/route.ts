@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendCancelResult } from '@/lib/line'
+import { formatDateJa } from '@/lib/utils'
 
 export async function POST(
   req: NextRequest,
@@ -12,7 +13,7 @@ export async function POST(
 
   const { data: cancelReq } = await db
     .from('cancellation_requests')
-    .select('*, reservations(*)')
+    .select('*, reservations(*, plans(name, departure_dates(date)))')
     .eq('id', id)
     .single()
 
@@ -43,12 +44,16 @@ export async function POST(
     }
     // LINE通知
     if (reservation.line_user_id) {
-      await sendCancelResult(reservation.line_user_id, true, reservation.reservation_number).catch(console.error)
+      const plan = reservation.plans as any
+      const date = plan?.departure_dates?.date
+      await sendCancelResult(reservation.line_user_id, true, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '').catch(console.error)
     }
   } else {
     const reservation = cancelReq.reservations as any
     if (reservation.line_user_id) {
-      await sendCancelResult(reservation.line_user_id, false, reservation.reservation_number).catch(console.error)
+      const plan = reservation.plans as any
+      const date = plan?.departure_dates?.date
+      await sendCancelResult(reservation.line_user_id, false, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '').catch(console.error)
     }
   }
 
