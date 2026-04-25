@@ -106,13 +106,20 @@ export default function CancelPage() {
               ? '乗船者の人数が変更されました。船長にも通知しました。'
               : '船長が確認後、LINEでご連絡します。'}
           </p>
-          <button className="btn-secondary" onClick={() => {
-            if (typeof window !== 'undefined' && window.opener == null && window.history.length <= 1) {
-              window.close()
-            } else {
-              try { window.close() } catch {}
-              router.push('/')
-            }
+          <button className="btn-secondary" onClick={async () => {
+            try {
+              const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+              if (liffId) {
+                const liffModule = await import('@line/liff')
+                const liff = liffModule.default
+                await liff.init({ liffId })
+                if (liff.isInClient()) {
+                  liff.closeWindow()
+                  return
+                }
+              }
+            } catch {}
+            window.close()
           }}>LINEに戻る</button>
         </div>
       </div>
