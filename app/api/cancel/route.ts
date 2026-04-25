@@ -39,14 +39,42 @@ function phoneVariants(input: string): string[] {
   return Array.from(variants)
 }
 
-// 電話番号で予約を検索（代表者 or 同行者）
+// 電話番号 or LINE User IDで予約を検索
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const phone = searchParams.get('phone')
-  if (!phone) return NextResponse.json({ error: '電話番号を入力してください。' }, { status: 400 })
+  const lineUserId = searchParams.get('lineUserId')
+
+  if (!phone && !lineUserId) return NextResponse.json({ error: '電話番号を入力してください。' }, { status: 400 })
 
   const db = createServerClient()
-  const phones = phoneVariants(phone)
+
+  // LINE User IDで検索（LIFF経由）
+  if (lineUserId) {
+    const { data: lineReservations } = await db
+      .from('reservations')
+      .select('id, reservation_number, representative_name, representative_phone, total_members, status, plans(name, departure_time, departure_dates(date))')
+      .eq('line_user_id', lineUserId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+
+    if (!lineReservations || lineReservations.length === 0) {
+      return NextResponse.json({ reservations: [] })
+    }
+
+    const enriched = await Promise.all(
+      lineReservations.map(async (r) => {
+        const { data: members } = await db
+          .from('members')
+          .select('id, name, phone, is_completed')
+          .eq('reservation_id', r.id)
+        return { ...r, members: members || [], isRepresentative: true, myMemberId: null }
+      })
+    )
+    return NextResponse.json({ reservations: enriched })
+  }
+
+  const phones = phoneVariants(phone!)
 
   // 代表者の電話番号で検索
   const { data: repReservations } = await db
