@@ -10,39 +10,39 @@ export default function AdminReservationsPage() {
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'pending_members'>('all')
   const [dateFilter, setDateFilter] = useState('')
   const [loadError, setLoadError] = useState('')
-  const [totalCount, setTotalCount] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [dbTotal, setDbTotal] = useState<number | null>(null)
-  const [statusSummary, setStatusSummary] = useState<Record<string, number> | null>(null)
 
   async function fetchReservations() {
     setRefreshing(true)
     setLoadError('')
     try {
-      const res = await fetch('/api/admin/reservations', { cache: 'no-store' })
-      const data = await res.json()
-      if (data.error) { setLoadError('APIエラー: ' + data.error); return }
-      setReservations(data.reservations || [])
-      setTotalCount((data.reservations || []).length)
-      if (data.totalInDB !== undefined) setDbTotal(data.totalInDB)
-      if (data.statusSummary) setStatusSummary(data.statusSummary)
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*, plans(name, departure_time, departure_dates(date))')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+
+      if (error) { setLoadError('取得エラー: ' + error.message); return }
+      setReservations(data || [])
     } catch (e: any) {
-      setLoadError('通信エラー: ' + (e?.message || String(e)))
+      setLoadError('エラー: ' + (e?.message || String(e)))
     } finally {
       setRefreshing(false)
     }
   }
 
-  useEffect(() => {
-    fetchReservations()
-  }, [])
+  useEffect(() => { fetchReservations() }, [])
 
   async function loadMembers(reservationId: string) {
-    if (members[reservationId]) { setExpanded(expanded === reservationId ? null : reservationId); return }
-    // 乗船者もAPIから取得
-    const res = await fetch(`/api/admin/members?reservationId=${reservationId}`)
-    const data = await res.json()
-    setMembers({ ...members, [reservationId]: data.members || [] })
+    if (members[reservationId]) {
+      setExpanded(expanded === reservationId ? null : reservationId)
+      return
+    }
+    const { data } = await supabase
+      .from('members')
+      .select('*')
+      .eq('reservation_id', reservationId)
+    setMembers({ ...members, [reservationId]: data || [] })
     setExpanded(reservationId)
   }
 
@@ -52,8 +52,8 @@ export default function AdminReservationsPage() {
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mt-2 mb-1">
-        <h2 className="section-title">予約一覧</h2>
+      <div className="flex items-center justify-between mt-2 mb-3">
+        <h2 className="section-title">予約一覧（{reservations.length}件）</h2>
         <button
           onClick={fetchReservations}
           disabled={refreshing}
@@ -62,16 +62,8 @@ export default function AdminReservationsPage() {
           {refreshing ? '更新中…' : '🔄 更新'}
         </button>
       </div>
+
       {loadError && <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600 mb-3">{loadError}</div>}
-      {dbTotal !== null && (
-        <div className="bg-gray-50 border border-gray-200 rounded p-2 text-xs text-gray-600 mb-2 space-y-0.5">
-          <div>DB合計: <strong>{dbTotal}件</strong>（キャンセル含む）</div>
-          {statusSummary && Object.entries(statusSummary).map(([k, v]) => (
-            <div key={k}>　{k}: {v as number}件</div>
-          ))}
-          <div>表示中: <strong>{filtered.length}件</strong></div>
-        </div>
-      )}
 
       <div className="mb-3">
         <input
@@ -151,3 +143,4 @@ export default function AdminReservationsPage() {
     </div>
   )
 }
+
