@@ -51,18 +51,20 @@ export default function CancelPage() {
         const inClient = liff.isInClient()
         const loggedIn = liff.isLoggedIn()
         setDebugMsg(`inClient:${inClient} loggedIn:${loggedIn}`)
-        if (inClient) {
-          if (!loggedIn) { liff.login(); return }
-          const profile = await liff.getProfile()
-          setFromLiff(true)
-          setDebugMsg(`userId取得: ${profile.userId.slice(0,8)}...`)
-          const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
-          const data = await res.json()
-          clearTimeout(timeout)
-          setReservations(res.ok ? (data.reservations || []) : [])
-          setStep('select')
+        // isInClient()がfalseでもLINE内ブラウザならログイン試行
+        if (!loggedIn) {
+          liff.login()
           return
         }
+        const profile = await liff.getProfile()
+        setFromLiff(true)
+        setDebugMsg(`userId取得: ${profile.userId.slice(0,8)}...`)
+        const res = await fetch(`/api/cancel?lineUserId=${encodeURIComponent(profile.userId)}`)
+        const data = await res.json()
+        clearTimeout(timeout)
+        setReservations(res.ok ? (data.reservations || []) : [])
+        setStep('select')
+        return
       } catch (e: any) {
         setDebugMsg(`エラー: ${e?.message || String(e)}`)
         console.error('LIFF init error:', e)
