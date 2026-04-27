@@ -5,6 +5,27 @@ import { Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa, formatTime, formatPrice } from '@/lib/utils'
 
+// LIFF初期化・LINE User ID取得（app/page.tsxと共通）
+let cachedLineUserId = ''
+async function initLiff(): Promise<string> {
+  if (cachedLineUserId) return cachedLineUserId
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  if (!liffId) return ''
+  try {
+    const liffModule = await import('@line/liff')
+    const liff = liffModule.default
+    await liff.init({ liffId })
+    if (liff.isInClient() && liff.isLoggedIn()) {
+      const profile = await liff.getProfile()
+      cachedLineUserId = profile.userId
+      return cachedLineUserId
+    }
+  } catch {
+    // 無視
+  }
+  return ''
+}
+
 type Plan = {
   id: string
   name: string
@@ -27,6 +48,11 @@ function PlanSelectContent() {
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [members, setMembers] = useState(1)
+  const [lineUserId, setLineUserId] = useState('')
+
+  useEffect(() => {
+    initLiff().then((uid) => { if (uid) setLineUserId(uid) })
+  }, [])
 
   useEffect(() => {
     async function fetchPlans() {
@@ -90,6 +116,7 @@ function PlanSelectContent() {
       planName: selectedPlan.name,
       members: String(members),
     })
+    if (lineUserId) params.set('lineUserId', lineUserId)
     router.push(`/reserve/${dateId}/form?${params.toString()}`)
   }
 
