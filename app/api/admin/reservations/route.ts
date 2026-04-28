@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const db = createServerClient()
 
-    // Step1: まずすべての予約を取得（ステータスに関わらず件数確認用）
+    // Step1: ã¾ããã¹ã¦ã®äºç´ãåå¾ï¼ã¹ãã¼ã¿ã¹ã«é¢ãããä»¶æ°ç¢ºèªç¨ï¼
     const { data: allReservations, error: allError } = await db
       .from('reservations')
       .select('id, status')
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       return acc
     }, {})
 
-    // Step2: キャンセル以外の予約を取得
+    // Step2: ã­ã£ã³ã»ã«ä»¥å¤ã®äºç´ãåå¾
     const { data: reservations, error } = await db
       .from('reservations')
       .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id, created_at')
@@ -41,21 +41,21 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Step3: plan情報を個別に取得
-    const planIds = [...new Set(reservations.map((r: any) => r.plan_id))]
+    // Step3: planæå ±ãåå¥ã«åå¾
+    const planIds = Array.from(new Set(reservations.map((r: any) => r.plan_id)))
     const { data: plans } = await db
       .from('plans')
       .select('id, name, departure_time, departure_date_id')
       .in('id', planIds)
 
-    // Step4: departure_date情報を個別に取得
-    const dateIds = [...new Set((plans || []).map((p: any) => p.departure_date_id))]
+    // Step4: departure_dateæå ±ãåå¥ã«åå¾
+    const dateIds = Array.from(new Set((plans || []).map((p: any) => p.departure_date_id)))
     const { data: dates } = await db
       .from('departure_dates')
       .select('id, date')
       .in('id', dateIds)
 
-    // Step5: データを結合
+    // Step5: ãã¼ã¿ãçµå
     const enriched = reservations.map((r: any) => {
       const plan = (plans || []).find((p: any) => p.id === r.plan_id)
       const date = plan ? (dates || []).find((d: any) => d.id === plan.departure_date_id) : null
