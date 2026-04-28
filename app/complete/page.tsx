@@ -21,14 +21,9 @@ function CompleteContent() {
           <h2 className="text-xl font-bold text-gray-800 mb-2">
             {isSingle ? '予約が確定しました！' : '予約を受け付けました'}
           </h2>
-          <p className="text-gray-500 text-sm">予約番号をお控えください</p>
         </div>
 
         <div className="card mb-6 text-center">
-          <div className="text-xs text-gray-500 mb-1">予約番号</div>
-          <div className="text-2xl font-bold text-ocean-700 tracking-wider">
-            {reservationNumber}
-          </div>
           <div className="text-sm text-gray-600 mt-2">{planName}</div>
           <div className="text-sm text-gray-600">{members}名</div>
         </div>
