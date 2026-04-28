@@ -458,9 +458,9 @@ export default function AdminDatesPage() {
                   <p className="font-bold mb-1">送信されるメッセージ：</p>
                   <p>昨日はご乗船いただきありがとうございました！🎣</p>
                   <p className="mt-1">【日程】{formatDateJa(thankTarget.date)}</p>
-                  <p className="mt-1">楽すんでいただけましたです〇中?またのご乗船をお待ちしております。</p>
-                  <p className="mt-1">釣瞜のお写瞜などインスタグラム でも璻介しておりますので、らくしければフォォーください📸</p>
-                  <p className="mt-1">またお会いできる日を明しみにしております！🎣 遊漁船 王丸</p>
+                  <p className="mt-1">楽しんでいただけましたでしょうか？またのご乗船をお待ちしております。</p>
+                  <p className="mt-1">釣果のお写真などインスタグラムでも紹介しておりますので、よろしければフォローください📸</p>
+                  <p className="mt-1">またお会いできる日を楽しみにしています！🎣 遊漁船 王丸</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setThankTarget(null)}
