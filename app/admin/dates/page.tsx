@@ -63,7 +63,7 @@ export default function AdminDatesPage() {
 
   function toggleId(id: string) {
     setOpenIds(prev => {
-      const next = new Set(prev)
+      const next = new Set(Array.from(prev))
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })

@@ -71,7 +71,7 @@ export default function AdminReservationsPage() {
 
   function toggleDate(date: string) {
     setOpenDates(prev => {
-      const next = new Set(prev)
+      const next = new Set(Array.from(prev))
       next.has(date) ? next.delete(date) : next.add(date)
       return next
     })
