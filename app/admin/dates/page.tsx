@@ -54,7 +54,7 @@ export default function AdminDatesPage() {
     // 直近の未来の出船日を自動展開
     const today = new Date().toISOString().slice(0, 10)
     const next = list.find(d => d.date >= today)
-    if (next) setOpenIds(prev => new Set([...prev, next.id]))
+    if (next) setOpenIds(prev => { const s = new Set(prev); s.add(next.id); return s })
   }
 
   function toggleId(id: string) {
