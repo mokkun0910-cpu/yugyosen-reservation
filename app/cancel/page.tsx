@@ -126,15 +126,15 @@ function CancelContent() {
   // 完了
   if (step === 'done') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card text-center">
+      <div className="min-h-screen bg-cream-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center w-full">
           <div className="text-5xl mb-3">
             {cancelType === 'member' ? '✅' : '📨'}
           </div>
-          <h2 className="font-bold text-lg text-gray-800 mb-2">
+          <h2 className="font-bold text-lg text-navy-700 font-serif mb-2">
             {cancelType === 'member' ? 'キャンセルが完了しました' : 'キャンセル申請を受け付けました'}
           </h2>
-          <p className="text-gray-500 text-sm mb-4">
+          <p className="text-gray-500 text-sm mb-6">
             {cancelType === 'member'
               ? '乗船者の人数が変更されました。船長にも通知しました。'
               : '船長が確認後、LINEでご連絡します。'}
@@ -150,17 +150,19 @@ function CancelContent() {
   const currentIdx = stepKeys.indexOf(step)
 
   return (
-    <div className="min-h-screen">
-      <div className="page-header">
+    <div className="min-h-screen bg-cream-50">
+      <div className="bg-navy-700 text-white px-4 py-4">
         <button
           onClick={() => {
             if (step === 'confirm') setStep('select')
             else if (step === 'select') setStep('phone')
             else closeWindow()
           }}
-          className="text-ocean-200 text-sm mb-1 block">← 戻る</button>
-        <div className="font-bold text-lg">キャンセル申請</div>
+          className="text-navy-200 text-sm mb-2 block hover:text-gold-400 transition-colors">← 戻る</button>
+        <div className="font-bold text-lg font-serif tracking-wide">予約確認・キャンセル</div>
+        <p className="text-navy-300 text-xs mt-0.5">遊漁船 高喜丸 ｜ 割烹旅館たかよし</p>
       </div>
+      <div className="h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
 
       <div className="p-4">
         {searching && step === 'phone' && (
@@ -177,8 +179,8 @@ function CancelContent() {
                 return (
                   <div key={label} className="flex items-center gap-1">
                     {i > 0 && <div className="h-px w-4 bg-gray-200 mr-1" />}
-                    <div className={`flex items-center gap-1 text-xs font-bold ${active ? 'text-ocean-700' : done ? 'text-green-600' : 'text-gray-400'}`}>
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${active ? 'bg-ocean-600 text-white' : done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                    <div className={`flex items-center gap-1 text-xs font-bold ${active ? 'text-navy-700' : done ? 'text-green-600' : 'text-gray-400'}`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${active ? 'bg-navy-600 text-white' : done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                         {done ? '✓' : i + 1}
                       </span>
                       {label}
@@ -225,7 +227,7 @@ function CancelContent() {
                         const date = plan?.departure_dates?.date
                         return (
                           <button key={r.id} onClick={() => handleSelectRes(r)}
-                            className="w-full card text-left hover:border-ocean-400 hover:shadow-md transition-all">
+                            className="w-full card text-left hover:border-navy-400 hover:shadow-md transition-all">
                             <div className="flex items-start justify-between">
                               <div>
                                 <div className="font-bold text-sm text-gray-800">
@@ -239,7 +241,7 @@ function CancelContent() {
                                 </div>
                                 <div className="text-xs text-gray-400 mt-0.5">{r.reservation_number}</div>
                               </div>
-                              <span className="text-ocean-600 text-xs font-bold mt-1">選択 →</span>
+                              <span className="text-navy-600 text-xs font-bold mt-1">選択 →</span>
                             </div>
                           </button>
                         )
@@ -271,7 +273,7 @@ function CancelContent() {
                 <div className="space-y-3 mb-4">
                   {selectedRes.members.filter(m => m.is_completed).length > 0 && (
                     <div>
-                      <label className={`card cursor-pointer block transition-all ${cancelType === 'member' ? 'border-ocean-400 bg-ocean-50 ring-2 ring-ocean-300' : ''}`}>
+                      <label className={`card cursor-pointer block transition-all ${cancelType === 'member' ? 'border-navy-400 bg-navy-50 ring-2 ring-gold-300' : ''}`}>
                         <div className="flex items-start gap-3">
                           <input type="radio" name="cancelType" value="member" checked={cancelType === 'member'}
                             onChange={() => setCancelType('member')} className="mt-1" />
@@ -283,7 +285,7 @@ function CancelContent() {
                                 <p className="text-xs font-bold text-gray-600">キャンセルする乗船者を選んでください：</p>
                                 {selectedRes.members.filter(m => m.is_completed).map((m) => (
                                   <label key={m.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-sm transition-all ${
-                                    selectedMemberId === m.id ? 'border-ocean-400 bg-ocean-50' : 'border-gray-200 bg-white'
+                                    selectedMemberId === m.id ? 'border-navy-400 bg-navy-50' : 'border-gray-200 bg-white'
                                   }`}>
                                     <input type="radio" name="memberId" value={m.id} checked={selectedMemberId === m.id}
                                       onChange={() => setSelectedMemberId(m.id)} />

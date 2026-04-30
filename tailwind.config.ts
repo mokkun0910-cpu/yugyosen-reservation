@@ -9,15 +9,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ocean: {
-          50: "#f0f9ff",
-          100: "#e0f2fe",
-          500: "#0ea5e9",
-          600: "#0284c7",
-          700: "#0369a1",
-          800: "#075985",
-          900: "#0c4a6e",
+        navy: {
+          50:  "#f0f4f7",
+          100: "#d9e4ec",
+          200: "#b3c9d9",
+          500: "#3a6a8a",
+          600: "#2a5070",
+          700: "#1a3a4a",
+          800: "#112535",
+          900: "#0a1820",
         },
+        gold: {
+          50:  "#fdf8ec",
+          100: "#f9edcc",
+          400: "#d4b84a",
+          500: "#c5a028",
+          600: "#a8891f",
+        },
+        cream: {
+          50:  "#faf8f4",
+          100: "#f3ede2",
+        },
+      },
+      fontFamily: {
+        serif: ["'Noto Serif JP'", "Yu Mincho", "游明朝", "serif"],
+        sans:  ["'Noto Sans JP'", "Hiragino Kaku Gothic ProN", "sans-serif"],
       },
     },
   },

@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-// LIFF初期化・LINE User ID取得
 let cachedLineUserId = ''
 async function initLiff(): Promise<string> {
   if (cachedLineUserId) return cachedLineUserId
@@ -49,8 +48,8 @@ function PlanCard({
   const maxSeats = plan.capacity
 
   return (
-    <div className="card border-ocean-200 bg-ocean-50">
-      <div className="font-bold text-gray-800 text-sm mb-1">{plan.name}</div>
+    <div className="bg-cream-50 border border-gold-100 rounded-xl p-4">
+      <div className="font-bold text-navy-700 text-sm mb-1 font-serif">{plan.name}</div>
       <div className="text-xs text-gray-500 mb-3">
         🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
       </div>
@@ -68,7 +67,7 @@ function PlanCard({
       </div>
       <button
         onClick={() => onBook(plan.id, plan.name, members)}
-        className="btn-primary py-2 text-sm"
+        className="btn-primary py-2.5 text-sm"
       >
         この内容で予約する →
       </button>
@@ -81,7 +80,7 @@ export default function HomePage() {
   const [dates, setDates] = useState<DepartureDate[]>([])
   const [loading, setLoading] = useState(true)
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()) // 0-indexed
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState<DepartureDate | null>(null)
   const [lineUserId, setLineUserId] = useState('')
 
@@ -134,7 +133,6 @@ export default function HomePage() {
     return 'available'
   }
 
-  // 日付文字列 "YYYY-MM-DD" → DepartureDate | undefined
   function getDateInfo(dateStr: string): DepartureDate | undefined {
     return dates.find(d => d.date === dateStr)
   }
@@ -145,9 +143,8 @@ export default function HomePage() {
     return getDateStatus(d)
   }
 
-  // カレンダーの日付一覧を生成
   function buildCalendar(year: number, month: number): (string | null)[] {
-    const firstDay = new Date(year, month, 1).getDay() // 0=日
+    const firstDay = new Date(year, month, 1).getDay()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const cells: (string | null)[] = []
     for (let i = 0; i < firstDay; i++) cells.push(null)
@@ -175,7 +172,6 @@ export default function HomePage() {
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const cells = buildCalendar(currentYear, currentMonth)
 
-  // 選択した日のプラン情報
   function handleDayClick(dateStr: string) {
     const status = getDayStatus(dateStr)
     if (dateStr < today) return
@@ -186,129 +182,146 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="page-header">
-        <div className="text-2xl font-bold mb-1">🎣 遊漁船 王丸</div>
-        <div className="text-ocean-100 text-sm">オンライン予約</div>
+    <div className="min-h-screen bg-cream-50">
+
+      {/* ヘッダー */}
+      <div className="bg-navy-700 text-white px-4 pt-8 pb-6 text-center relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'repeating-linear-gradient(45deg, #c5a028 0, #c5a028 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
+        />
+        <div className="relative">
+          <p className="text-gold-400 text-xs tracking-widest mb-1">TAKAYOSHI RYOKAN</p>
+          <h1 className="text-2xl font-bold font-serif tracking-wider mb-0.5">遊漁船 高喜丸</h1>
+          <p className="text-navy-200 text-xs tracking-wide">割烹旅館たかよし ｜ 宗像・神湊</p>
+        </div>
       </div>
 
+      {/* ゴールドライン */}
+      <div className="h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
+
       <div className="p-4">
-        <h2 className="section-title mt-2">出船日を選んでください</h2>
+
+        {/* 予約方法サブタイトル */}
+        <div className="flex items-center gap-2 mt-4 mb-4">
+          <div className="flex-1 h-px bg-navy-100" />
+          <p className="text-xs text-navy-500 tracking-widest font-serif">出船日を選んでください</p>
+          <div className="flex-1 h-px bg-navy-100" />
+        </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400">読み込み中...</div>
+          <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
         ) : (
           <>
             {/* カレンダー */}
-            <div className="card mb-4 p-3">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
               {/* 月ナビゲーション */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between px-4 py-3 bg-navy-700 text-white">
                 <button
                   onClick={prevMonth}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-ocean-50 text-ocean-700 font-bold text-lg hover:bg-ocean-100 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-navy-600 transition-colors text-lg font-bold"
                 >
                   ‹
                 </button>
-                <div className="font-bold text-base text-gray-800">
+                <div className="font-bold text-sm font-serif tracking-wider">
                   {currentYear}年 {currentMonth + 1}月
                 </div>
                 <button
                   onClick={nextMonth}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-ocean-50 text-ocean-700 font-bold text-lg hover:bg-ocean-100 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-navy-600 transition-colors text-lg font-bold"
                 >
                   ›
                 </button>
               </div>
 
-              {/* 曜日ヘッダー */}
-              <div className="grid grid-cols-7 mb-1">
-                {WEEKDAYS.map((w, i) => (
-                  <div
-                    key={w}
-                    className={`text-center text-xs font-bold py-1 ${
-                      i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-500'
-                    }`}
-                  >
-                    {w}
-                  </div>
-                ))}
-              </div>
-
-              {/* 日付グリッド */}
-              <div className="grid grid-cols-7 gap-y-1">
-                {cells.map((dateStr, idx) => {
-                  if (!dateStr) {
-                    return <div key={`empty-${idx}`} />
-                  }
-
-                  const dayNum = Number(dateStr.slice(8))
-                  const dayOfWeek = new Date(dateStr).getDay()
-                  const isPast = dateStr < today
-                  const isToday = dateStr === today
-                  const status = getDayStatus(dateStr)
-                  const isSelected = selectedDate?.date === dateStr
-                  const isClickable = !isPast && status === 'available'
-
-                  return (
+              <div className="p-3">
+                {/* 曜日ヘッダー */}
+                <div className="grid grid-cols-7 mb-1">
+                  {WEEKDAYS.map((w, i) => (
                     <div
-                      key={dateStr}
-                      onClick={() => handleDayClick(dateStr)}
-                      className={`
-                        flex flex-col items-center py-1 rounded-lg transition-colors
-                        ${isClickable ? 'cursor-pointer hover:bg-ocean-50' : ''}
-                        ${isSelected ? 'bg-ocean-100 ring-2 ring-ocean-400' : ''}
-                        ${isPast ? 'opacity-30' : ''}
-                      `}
+                      key={w}
+                      className={`text-center text-xs font-bold py-1 ${
+                        i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'
+                      }`}
                     >
-                      {/* 日付番号 */}
-                      <span className={`
-                        text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full
-                        ${isToday ? 'bg-ocean-600 text-white font-bold' : ''}
-                        ${!isToday && dayOfWeek === 0 ? 'text-red-500' : ''}
-                        ${!isToday && dayOfWeek === 6 ? 'text-blue-500' : ''}
-                        ${!isToday && dayOfWeek !== 0 && dayOfWeek !== 6 ? 'text-gray-800' : ''}
-                      `}>
-                        {dayNum}
-                      </span>
-
-                      {/* ステータス印 */}
-                      {!isPast && status === 'available' && (
-                        <span className="text-xs text-green-600 font-bold leading-none mt-0.5">◎</span>
-                      )}
-                      {!isPast && status === 'full' && (
-                        <span className="text-xs text-red-400 font-bold leading-none mt-0.5">×</span>
-                      )}
-                      {!isPast && status === 'noPlan' && (
-                        <span className="text-xs text-gray-300 leading-none mt-0.5">－</span>
-                      )}
-                      {(isPast || status === 'none') && (
-                        <span className="text-xs leading-none mt-0.5 opacity-0">·</span>
-                      )}
+                      {w}
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
 
-              {/* 凡例 */}
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 justify-center">
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <span className="text-green-600 font-bold">◎</span> 予約可能
+                {/* 日付グリッド */}
+                <div className="grid grid-cols-7 gap-y-1">
+                  {cells.map((dateStr, idx) => {
+                    if (!dateStr) return <div key={`empty-${idx}`} />
+
+                    const dayNum = Number(dateStr.slice(8))
+                    const dayOfWeek = new Date(dateStr).getDay()
+                    const isPast = dateStr < today
+                    const isToday = dateStr === today
+                    const status = getDayStatus(dateStr)
+                    const isSelected = selectedDate?.date === dateStr
+                    const isClickable = !isPast && status === 'available'
+
+                    return (
+                      <div
+                        key={dateStr}
+                        onClick={() => handleDayClick(dateStr)}
+                        className={`
+                          flex flex-col items-center py-1 rounded-lg transition-all
+                          ${isClickable ? 'cursor-pointer hover:bg-cream-100' : ''}
+                          ${isSelected ? 'bg-gold-50 ring-2 ring-gold-400' : ''}
+                          ${isPast ? 'opacity-25' : ''}
+                        `}
+                      >
+                        <span className={`
+                          text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full
+                          ${isToday ? 'bg-navy-700 text-white font-bold' : ''}
+                          ${!isToday && dayOfWeek === 0 ? 'text-red-400' : ''}
+                          ${!isToday && dayOfWeek === 6 ? 'text-blue-400' : ''}
+                          ${!isToday && dayOfWeek !== 0 && dayOfWeek !== 6 ? 'text-gray-800' : ''}
+                        `}>
+                          {dayNum}
+                        </span>
+                        {!isPast && status === 'available' && (
+                          <span className="text-xs text-green-600 font-bold leading-none mt-0.5">◎</span>
+                        )}
+                        {!isPast && status === 'full' && (
+                          <span className="text-xs text-red-400 font-bold leading-none mt-0.5">×</span>
+                        )}
+                        {!isPast && status === 'noPlan' && (
+                          <span className="text-xs text-gray-300 leading-none mt-0.5">－</span>
+                        )}
+                        {(isPast || status === 'none') && (
+                          <span className="text-xs leading-none mt-0.5 opacity-0">·</span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <span className="text-red-400 font-bold">×</span> 満員
-                </div>
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <span className="text-gray-300">－</span> 準備中
+
+                {/* 凡例 */}
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 justify-center">
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span className="text-green-600 font-bold">◎</span> 予約可
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span className="text-red-400 font-bold">×</span> 満員
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span className="text-gray-300">－</span> 準備中
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 選択した日のプランリスト */}
+            {/* 選択した日のプラン */}
             {selectedDate && (
               <div className="mb-4">
-                <h3 className="text-sm font-bold text-gray-700 mb-2">
-                  📅 {selectedDate.date.replace(/-/g, '/').slice(0, 10)} のプラン
-                </h3>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1 h-4 bg-gold-500 rounded-full" />
+                  <h3 className="text-sm font-bold text-navy-700 font-serif">
+                    {selectedDate.date.replace(/-/g, '/').slice(0, 10)} のプラン
+                  </h3>
+                </div>
                 <div className="space-y-3">
                   {selectedDate.plans
                     .filter((p: any) => !p.is_locked)
@@ -327,10 +340,10 @@ export default function HomePage() {
                   {selectedDate.plans.filter((p: any) => !p.is_locked).length === 0 && (
                     <button
                       onClick={() => router.push(`/reserve/${selectedDate.id}`)}
-                      className="w-full card text-left hover:border-ocean-400 hover:shadow-md transition-all cursor-pointer"
+                      className="w-full bg-white rounded-xl border border-gray-200 p-4 text-left hover:border-gold-400 hover:shadow-md transition-all cursor-pointer"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="font-bold text-gray-800 text-sm">この日のプランを見る</div>
+                        <div className="font-bold text-navy-700 text-sm font-serif">この日のプランを見る</div>
                         <span className="badge-available">予約する →</span>
                       </div>
                     </button>
@@ -339,12 +352,12 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* 予約可能日がない場合 */}
+            {/* 予約日なし */}
             {dates.length === 0 && (
-              <div className="card text-center py-8">
-                <div className="text-4xl mb-3">🚢</div>
-                <p className="text-gray-600">現在、予約受付中の日程はありません。</p>
-                <p className="text-gray-400 text-sm mt-2">しばらくしてからまたご確認ください。</p>
+              <div className="bg-white rounded-2xl border border-gray-100 text-center py-10 px-4">
+                <div className="text-4xl mb-3">⚓</div>
+                <p className="text-navy-700 font-serif font-bold mb-1">現在受付中の日程はありません</p>
+                <p className="text-gray-400 text-sm">しばらくしてからまたご確認ください。</p>
               </div>
             )}
           </>
@@ -354,16 +367,33 @@ export default function HomePage() {
         <div className="mt-6">
           <a
             href={lineUserId ? `/cancel?lineUserId=${encodeURIComponent(lineUserId)}` : '/cancel'}
-            className="block w-full text-center py-3 px-4 rounded-xl border-2 border-ocean-300 bg-white text-ocean-700 font-bold text-sm hover:bg-ocean-50 transition-colors"
+            className="flex items-center justify-center gap-2 w-full text-center py-3 px-4 rounded-xl border border-navy-200 bg-white text-navy-700 font-bold text-sm hover:bg-cream-100 transition-colors"
           >
-            📋 予約確認・キャンセル
+            <span>📋</span> 予約確認・キャンセル
           </a>
         </div>
 
-        <div className="mt-4 p-4 bg-ocean-50 rounded-lg text-sm text-gray-600">
-          <p className="font-bold text-ocean-800 mb-1">📞 電話でのご予約</p>
-          <p>オンライン予約が難しい場合はお電話ください。</p>
+        {/* 電話予約 */}
+        <div className="mt-3 p-4 bg-navy-700 rounded-xl text-white">
+          <p className="font-bold text-gold-400 text-sm font-serif mb-1">📞 お電話でのご予約</p>
+          <a href="tel:0940621221" className="text-white text-lg font-bold tracking-wider">
+            0940-62-1221
+          </a>
+          <p className="text-navy-200 text-xs mt-1">受付時間：9:00〜20:00</p>
         </div>
+
+        {/* 旅館サイトへ */}
+        <div className="mt-3 mb-6">
+          <a
+            href="https://takayoshi-ryokan.com"
+            target="_blank"
+            rel="noopener"
+            className="flex items-center justify-center gap-1 w-full text-center py-2.5 rounded-xl border border-gray-200 bg-white text-gray-500 text-xs hover:bg-cream-100 transition-colors"
+          >
+            割烹旅館たかよし 公式サイトへ →
+          </a>
+        </div>
+
       </div>
     </div>
   )

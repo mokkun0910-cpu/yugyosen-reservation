@@ -11,19 +11,21 @@ function CompleteContent() {
   const isSingle = members === 1
 
   return (
-    <div className="min-h-screen">
-      <div className="page-header">
-        <div className="font-bold text-lg">{isSingle ? '予約完了' : '予約受付完了'}</div>
+    <div className="min-h-screen bg-cream-50">
+      <div className="bg-navy-700 text-white px-4 py-4 text-center">
+        <div className="font-bold text-lg font-serif tracking-wide">{isSingle ? '予約完了' : '予約受付完了'}</div>
+        <p className="text-navy-300 text-xs mt-0.5">遊漁船 高喜丸 ｜ 割烹旅館たかよし</p>
       </div>
+      <div className="h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
       <div className="p-4">
         <div className="text-center py-6">
-          <div className="text-5xl mb-4">🎉</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            {isSingle ? '予約が確定しました！' : '予約を受け付けました'}
+          <div className="text-5xl mb-4">⚓</div>
+          <h2 className="text-xl font-bold text-navy-700 font-serif mb-2">
+            {isSingle ? 'ご予約が確定しました' : 'ご予約を受け付けました'}
           </h2>
         </div>
 
-        <div className="card mb-6 text-center">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 text-center">
           <div className="text-sm text-gray-600 mt-2">{planName}</div>
           <div className="text-sm text-gray-600">{members}名</div>
         </div>

@@ -72,21 +72,23 @@ function ReserveFormContent() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="page-header">
-        <button onClick={() => router.back()} className="text-ocean-200 text-sm mb-1 block">
+    <div className="min-h-screen bg-cream-50">
+      <div className="bg-navy-700 text-white px-4 py-4">
+        <button onClick={() => router.back()} className="text-navy-200 text-sm mb-2 block hover:text-gold-400 transition-colors">
           ← 戻る
         </button>
-        <div className="font-bold text-lg">予約情報の入力</div>
+        <div className="font-bold text-lg font-serif tracking-wide">予約情報の入力</div>
+        <p className="text-navy-300 text-xs mt-0.5">遊漁船 高喜丸 ｜ 割烹旅館たかよし</p>
       </div>
+      <div className="h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
 
       <div className="p-4">
-        <div className="card mb-4 bg-ocean-50 border-ocean-200">
-          <div className="text-sm text-gray-600">
-            <span className="font-bold text-ocean-800">選択プラン：</span>{planName}
+        <div className="bg-gold-50 border border-gold-200 rounded-xl p-4 mb-4">
+          <div className="text-sm text-gray-700">
+            <span className="font-bold text-navy-700">選択プラン：</span>{planName}
           </div>
-          <div className="text-sm text-gray-600 mt-1">
-            <span className="font-bold text-ocean-800">参加人数：</span>{members}名
+          <div className="text-sm text-gray-700 mt-1">
+            <span className="font-bold text-navy-700">参加人数：</span>{members}名
           </div>
         </div>
 
