@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa } from '@/lib/utils'
@@ -11,6 +11,7 @@ export default function AdminReservationsPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [openDates, setOpenDates] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const initializedRef = useRef(false)
   const [cancelling, setCancelling] = useState<string | null>(null)
 
   async function handleCancel(r: any) {
@@ -45,9 +46,12 @@ export default function AdminReservationsPage() {
       return da < db ? -1 : da > db ? 1 : 0
     })
     setReservations(sorted)
-    // 直近の出船日を自動展開
-    if (sorted.length > 0) {
-      const firstDate = sorted[0].plans?.departure_dates?.date || ''
+    // 初回ロード時のみ直近の出船日を自動展開
+    if (!initializedRef.current && sorted.length > 0) {
+      initializedRef.current = true
+      const today = new Date().toISOString().slice(0, 10)
+      const next = sorted.find((r: any) => (r.plans?.departure_dates?.date || '') >= today)
+      const firstDate = next?.plans?.departure_dates?.date || sorted[0].plans?.departure_dates?.date || ''
       if (firstDate) setOpenDates(new Set([firstDate]))
     }
     setLoading(false)
