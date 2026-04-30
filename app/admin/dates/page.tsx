@@ -234,7 +234,7 @@ export default function AdminDatesPage() {
             onChange={(e) => setNewDate(e.target.value)}
             min={new Date().toISOString().slice(0, 10)} />
           <button onClick={handleAdd} disabled={loading || !newDate}
-            className="bg-ocean-600 text-white px-4 py-2 rounded-lg font-bold shrink-0 disabled:opacity-50">
+            className="bg-navy-600 text-white px-4 py-2 rounded-lg font-bold shrink-0 disabled:opacity-50">
             追加
           </button>
         </div>
@@ -275,7 +275,7 @@ export default function AdminDatesPage() {
             {/* サブ操作ボタン */}
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => router.push(`/admin/plans/${d.id}`)}
-                className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg font-medium">
+                className="text-xs bg-navy-50 text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg font-medium">
                 プランを設定
               </button>
               <a href={`/api/admin/export?dateId=${d.id}`} download
@@ -327,7 +327,7 @@ export default function AdminDatesPage() {
                   )}
                 </div>
                 <button onClick={() => setDepartureTarget(null)}
-                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">
                   閉じる
                 </button>
               </>
@@ -343,7 +343,7 @@ export default function AdminDatesPage() {
                   <p>【日程】{formatDateJa(departureTarget.date)}</p>
                   <p className="mt-1">明日の出航が決定いたしました。ご予約いただきありがとうございます。</p>
                   <p className="mt-1">もし、ご同行者様があらっすゃいましたら、お手数ですがそちらの方へも共有あただけますと幸いです。</p>
-                  <p className="mt-1">当日皆様のご乗船をお待ちしております。🎣 遊漁船 王丸</p>
+                  <p className="mt-1">当日皆様のご乗船をお待ちしております。🎣 遊漁船 高喜丸</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setDepartureTarget(null)}
@@ -385,7 +385,7 @@ export default function AdminDatesPage() {
                   )}
                 </div>
                 <button onClick={() => setWeatherTarget(null)}
-                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">
                   閉じる
                 </button>
               </>
@@ -402,7 +402,7 @@ export default function AdminDatesPage() {
                   <p>【理由】天候不良のため</p>
                   <p className="mt-1">誠に申し訳ございませんが、当日の出船を中止とさせていただきます。</p>
                   <p className="mt-1">もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。</p>
-                  <p className="mt-1">またのご予約をお待ちしております。🎣 遊漁船 王丸</p>
+                  <p className="mt-1">またのご予約をお待ちしております。🎣 遊漁船 高喜丸</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setWeatherTarget(null)}
@@ -444,7 +444,7 @@ export default function AdminDatesPage() {
                   )}
                 </div>
                 <button onClick={() => setThankTarget(null)}
-                  className="w-full py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold">
+                  className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">
                   閉じる
                 </button>
               </>
@@ -460,7 +460,7 @@ export default function AdminDatesPage() {
                   <p className="mt-1">【日程】{formatDateJa(thankTarget.date)}</p>
                   <p className="mt-1">楽しんでいただけましたでしょうか？またのご乗船をお待ちしております。</p>
                   <p className="mt-1">釣果のお写真などインスタグラムでも紹介しておりますので、よろしければフォローください📸</p>
-                  <p className="mt-1">またお会いできる日を楽しみにしています！🎣 遊漁船 王丸</p>
+                  <p className="mt-1">またお会いできる日を楽しみにしています！🎣 遊漁船 高喜丸</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setThankTarget(null)}
@@ -508,7 +508,7 @@ export default function AdminDatesPage() {
               <button
                 onClick={handleCopy}
                 disabled={copyLoading || !copyTargetDate}
-                className="flex-1 py-2 rounded-lg bg-ocean-600 text-white text-sm font-bold disabled:opacity-50"
+                className="flex-1 py-2 rounded-lg bg-navy-600 text-white text-sm font-bold disabled:opacity-50"
               >
                 {copyLoading ? 'コピー中...' : 'コピーする'}
               </button>

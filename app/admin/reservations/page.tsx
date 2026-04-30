@@ -33,7 +33,7 @@ export default function AdminReservationsPage() {
     <div className="p-4">
       <div className="flex items-center justify-between mt-2 mb-4">
         <h2 className="section-title">予約一覧（{reservations.length}件）</h2>
-        <button onClick={load} className="text-xs bg-ocean-50 text-ocean-700 border border-ocean-200 px-3 py-1.5 rounded-lg">🔄 更新</button>
+        <button onClick={load} className="text-xs bg-navy-50 text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg">🔄 更新</button>
       </div>
       {loading && <div className="text-center py-8 text-gray-400">読み込み中...</div>}
       <div className="space-y-3">
@@ -52,7 +52,7 @@ export default function AdminReservationsPage() {
                 {r.status === 'confirmed' ? '確定' : '入力待ち'}
               </span>
             </div>
-            <button onClick={() => loadMembers(r.id)} className="text-xs text-ocean-600 border border-ocean-200 px-3 py-1.5 rounded-lg w-full">
+            <button onClick={() => loadMembers(r.id)} className="text-xs text-navy-600 border border-navy-200 px-3 py-1.5 rounded-lg w-full">
               {expanded === r.id ? '乗船者を閉じる ▲' : '乗船者名簿を見る ▼'}
             </button>
             {expanded === r.id && members[r.id] && (
