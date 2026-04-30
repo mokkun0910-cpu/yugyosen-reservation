@@ -7,7 +7,7 @@ let cachedLineUserId = ''
 // LIFFの初期化状態: 'loading' | 'ok' | 'no_liff_id'
 let liffStatus: 'loading' | 'ok' | 'no_liff_id' = 'loading'
 
-async function initLiff(): Promise<{ userId: string; status: 'ok' | 'no_liff_id' }> {
+async function initLiff(): Promise<{ userId: string; status: 'ok' | 'no_liff_id' | 'loading' }> {
   if (cachedLineUserId) return { userId: cachedLineUserId, status: 'ok' }
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
   if (!liffId) {
