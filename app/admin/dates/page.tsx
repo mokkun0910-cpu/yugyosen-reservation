@@ -74,14 +74,33 @@ export default function AdminDatesPage() {
   async function handleAdd() {
     if (!newDate) return
     setLoading(true)
-    await supabase.from('departure_dates').insert({ date: newDate, is_open: true })
+    const res = await fetch('/api/admin/dates', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ date: newDate }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert('追加に失敗しました: ' + (data.error || '不明なエラー'))
+      setLoading(false)
+      return
+    }
     setNewDate('')
     await fetchDates()
     setLoading(false)
   }
 
   async function toggleOpen(id: string, current: boolean) {
-    await supabase.from('departure_dates').update({ is_open: !current }).eq('id', id)
+    const res = await fetch('/api/admin/dates', {
+      method: 'PATCH',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ id, is_open: !current }),
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      alert('更新に失敗しました: ' + (data.error || '不明なエラー'))
+      return
+    }
     await fetchDates()
   }
 
@@ -160,7 +179,16 @@ export default function AdminDatesPage() {
   }
 
   async function unlockPlans(dateId: string) {
-    await supabase.from('plans').update({ is_locked: false }).eq('departure_date_id', dateId)
+    const res = await fetch('/api/admin/plans', {
+      method: 'PATCH',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ departure_date_id: dateId }),
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      alert('ロック解除に失敗しました: ' + (data.error || '不明なエラー'))
+      return
+    }
     await fetchDates()
     alert('プランのロックを解除しました。')
   }
@@ -183,65 +211,16 @@ export default function AdminDatesPage() {
     setCopyError('')
 
     try {
-      // 同じ日付がすでに存在するか確認（配列で取得してエラーを避ける）
-      const { data: existingList } = await supabase
-        .from('departure_dates')
-        .select('id')
-        .eq('date', copyTargetDate)
-
-      let targetDateId: string
-
-      if (existingList && existingList.length > 0) {
-        targetDateId = existingList[0].id
-      } else {
-        // 新しい出船日を作成
-        const { data: newDateData, error: dateError } = await supabase
-          .from('departure_dates')
-          .insert({ date: copyTargetDate, is_open: false })
-          .select()
-        if (dateError || !newDateData || newDateData.length === 0) {
-          setCopyError('出船日の作成に失敗しました: ' + (dateError?.message || '不明なエラー'))
-          setCopyLoading(false)
-          return
-        }
-        targetDateId = newDateData[0].id
-      }
-
-      // 元の出船日のプランを取得
-      const { data: sourcePlans, error: planFetchError } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('departure_date_id', copySource.id)
-
-      if (planFetchError) {
-        setCopyError('プランの取得に失敗しました: ' + planFetchError.message)
-        setCopyLoading(false)
+      const res = await fetch('/api/admin/dates/copy', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ sourceDateId: copySource.id, targetDate: copyTargetDate }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setCopyError(data.error || '不明なエラー')
         return
       }
-
-      if (!sourcePlans || sourcePlans.length === 0) {
-        setCopyError('コピー元にプランがありません。先にプランを設定してください。')
-        setCopyLoading(false)
-        return
-      }
-
-      const newPlans = sourcePlans.map((p: any) => ({
-        departure_date_id: targetDateId,
-        name: p.name,
-        target_fish: p.target_fish,
-        departure_time: p.departure_time,
-        capacity: p.capacity,
-        price: p.price,
-        is_locked: false,
-      }))
-
-      const { error: planInsertError } = await supabase.from('plans').insert(newPlans)
-      if (planInsertError) {
-        setCopyError('プランのコピーに失敗しました: ' + planInsertError.message)
-        setCopyLoading(false)
-        return
-      }
-
       await fetchDates()
       closeCopyModal()
     } catch (e: any) {

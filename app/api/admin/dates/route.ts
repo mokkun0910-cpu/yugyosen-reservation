@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
+// 出船日を追加
+export async function POST(req: NextRequest) {
+  const authError = checkAdminAuth(req)
+  if (authError) return authError
+
+  const { date } = await req.json()
+  if (!date) return NextResponse.json({ error: '日付が必要です。' }, { status: 400 })
+
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('departure_dates')
+    .insert({ date, is_open: true })
+    .select()
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data })
+}
+
+// 公開/非公開を切り替え
+export async function PATCH(req: NextRequest) {
+  const authError = checkAdminAuth(req)
+  if (authError) return authError
+
+  const { id, is_open } = await req.json()
+  if (!id || is_open === undefined) return NextResponse.json({ error: 'idとis_openが必要です。' }, { status: 400 })
+
+  const db = createServerClient()
+  const { error } = await db.from('departure_dates').update({ is_open }).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+// 出船日を削除
 export async function DELETE(req: NextRequest) {
   const authError = checkAdminAuth(req)
   if (authError) return authError
@@ -11,7 +44,6 @@ export async function DELETE(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 関連するプラン・予約を先に削除
   const { data: plans } = await db.from('plans').select('id').eq('departure_date_id', id)
   const planIds = (plans || []).map((p: any) => p.id)
 
@@ -32,6 +64,5 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await db.from('departure_dates').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
   return NextResponse.json({ ok: true })
 }

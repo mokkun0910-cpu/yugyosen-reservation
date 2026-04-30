@@ -25,6 +25,13 @@ export default function AdminPlansPage() {
 
   useEffect(() => { fetchData() }, [dateId])
 
+  function getAdminHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-password': sessionStorage.getItem('admin_pw') || '',
+    }
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -37,18 +44,21 @@ export default function AdminPlansPage() {
     }
 
     setSaving(true)
-    const { error: insertError } = await supabase.from('plans').insert({
-      departure_date_id: dateId,
-      name: form.name,
-      target_fish: form.target_fish,
-      departure_time: form.departure_time,
-      price: Number(form.price),
-      capacity: Number(form.capacity),
-      is_locked: false,
+    const res = await fetch('/api/admin/plans', {
+      method: 'POST',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({
+        departure_date_id: dateId,
+        name: form.name,
+        target_fish: form.target_fish,
+        departure_time: form.departure_time,
+        price: Number(form.price),
+        capacity: Number(form.capacity),
+      }),
     })
-
-    if (insertError) {
-      setError('プランの保存に失敗しました: ' + insertError.message)
+    const data = await res.json()
+    if (!res.ok) {
+      setError('プランの保存に失敗しました: ' + (data.error || '不明なエラー'))
       setSaving(false)
       return
     }
@@ -62,9 +72,14 @@ export default function AdminPlansPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('このプランを削除しますか？')) return
-    const { error: deleteError } = await supabase.from('plans').delete().eq('id', id)
-    if (deleteError) {
-      alert('削除に失敗しました: ' + deleteError.message)
+    const res = await fetch('/api/admin/plans', {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ id }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert('削除に失敗しました: ' + (data.error || '不明なエラー'))
       return
     }
     await fetchData()
