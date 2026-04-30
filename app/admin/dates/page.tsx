@@ -9,6 +9,7 @@ export default function AdminDatesPage() {
   const [dates, setDates] = useState<any[]>([])
   const [newDate, setNewDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
   // コピー用の状態
   const [copySource, setCopySource] = useState<any | null>(null)
@@ -48,7 +49,20 @@ export default function AdminDatesPage() {
       .select('*, plans(id, name, is_locked)')
       .gte('date', fromDate)
       .order('date')
-    setDates(data || [])
+    const list = data || []
+    setDates(list)
+    // 直近の未来の出船日を自動展開
+    const today = new Date().toISOString().slice(0, 10)
+    const next = list.find(d => d.date >= today)
+    if (next) setOpenIds(prev => new Set([...prev, next.id]))
+  }
+
+  function toggleId(id: string) {
+    setOpenIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   useEffect(() => { fetchDates() }, [])
@@ -225,82 +239,121 @@ export default function AdminDatesPage() {
 
   return (
     <div className="p-4">
-      <h2 className="section-title mt-2">出船日の管理</h2>
+      <div className="flex items-center justify-between mt-3 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 bg-gold-500 rounded-full" />
+          <h2 className="text-lg font-bold text-navy-700 font-serif">
+            出船日の管理
+            <span className="text-sm font-normal text-gray-400 ml-2">({dates.length}件)</span>
+          </h2>
+        </div>
+        <button onClick={fetchDates}
+          className="text-xs bg-white text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg hover:bg-cream-50 transition-colors">
+          🔄 更新
+        </button>
+      </div>
 
-      <div className="card mb-4">
-        <p className="text-sm text-gray-600 mb-3">出船日を追加する</p>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
+        <p className="text-sm font-bold text-navy-700 mb-3">新しい出船日を追加</p>
         <div className="flex gap-2">
           <input type="date" className="input-field" value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
             min={new Date().toISOString().slice(0, 10)} />
           <button onClick={handleAdd} disabled={loading || !newDate}
-            className="bg-navy-600 text-white px-4 py-2 rounded-lg font-bold shrink-0 disabled:opacity-50">
+            className="bg-navy-700 text-white px-4 py-2 rounded-lg font-bold shrink-0 disabled:opacity-50 hover:bg-navy-800 transition-colors">
             追加
           </button>
         </div>
       </div>
 
+      {dates.length === 0 && (
+        <div className="bg-white rounded-xl border border-dashed border-gray-200 text-center py-10 text-gray-400 text-sm">
+          出船日がありません
+        </div>
+      )}
+
       <div className="space-y-3">
-        {dates.length === 0 && <div className="text-center text-gray-400 py-6">出船日がありません</div>}
-        {dates.map((d) => (
-          <div key={d.id} className="card">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="font-bold text-sm">{formatDateJa(d.date)}</div>
-                <div className="text-xs text-gray-500">{d.plans?.length || 0}プラン設定済み</div>
+        {(() => {
+          const today = new Date().toISOString().slice(0, 10)
+          return dates.map((d) => {
+            const isPast = d.date < today
+            const isOpen = openIds.has(d.id)
+            return (
+              <div key={d.id} className="mb-2">
+                {/* 日付ヘッダー */}
+                <button
+                  onClick={() => toggleId(d.id)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl mb-1 transition-colors ${
+                    isPast ? 'bg-gray-100 text-gray-500' : 'bg-navy-700 text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-base">{isPast ? '📁' : '📅'}</span>
+                    <div className="text-left">
+                      <div className={`font-bold font-serif text-sm ${isPast ? 'text-gray-600' : 'text-white'}`}>
+                        {formatDateJa(d.date)}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${isPast ? 'text-gray-400' : 'text-navy-200'}`}>
+                        {d.plans?.length || 0}プラン　／　{d.is_open ? '🟢 公開中' : '⚫ 非公開'}
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`text-sm ${isPast ? 'text-gray-400' : 'text-navy-200'}`}>
+                    {isOpen ? '▲' : '▼'}
+                  </span>
+                </button>
+
+                {/* 操作パネル */}
+                {isOpen && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 pl-4">
+                    {/* 通知ボタン */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
+                        className="flex flex-col items-center justify-center gap-0.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                        <span>⚓</span><span>出航決定</span>
+                      </button>
+                      <button onClick={() => { setWeatherTarget(d); setWeatherResult(null) }}
+                        className="flex flex-col items-center justify-center gap-0.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
+                        <span>⛈️</span><span>天候不良</span>
+                      </button>
+                      <button onClick={() => { setThankTarget(d); setThankResult(null) }}
+                        className="flex flex-col items-center justify-center gap-0.5 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                        <span>🙏</span><span>お礼送信</span>
+                      </button>
+                    </div>
+                    {/* サブ操作ボタン */}
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={() => router.push(`/admin/plans/${d.id}`)}
+                        className="text-xs bg-navy-50 text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg font-medium">
+                        プランを設定
+                      </button>
+                      <a href={`/api/admin/export?dateId=${d.id}`} download
+                        className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
+                        📥 乗船名簿
+                      </a>
+                      <button onClick={() => unlockPlans(d.id)}
+                        className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg font-medium">
+                        🔓 ロック解除
+                      </button>
+                      <button onClick={() => openCopyModal(d)}
+                        className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg font-medium">
+                        📋 コピー作成
+                      </button>
+                      <button onClick={() => toggleOpen(d.id, d.is_open)}
+                        className="text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg font-medium">
+                        {d.is_open ? '非公開にする' : '公開する'}
+                      </button>
+                      <button onClick={() => handleDelete(d.id)}
+                        className="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-medium">
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                  d.is_open ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {d.is_open ? '公開中' : '非公開'}
-                </span>
-              </div>
-            </div>
-            {/* 通知ボタン（目立つ大きめ） */}
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
-                className="flex flex-col items-center justify-center gap-0.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                <span>⚓</span><span>出航決定</span>
-              </button>
-              <button onClick={() => { setWeatherTarget(d); setWeatherResult(null) }}
-                className="flex flex-col items-center justify-center gap-0.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
-                <span>⛈️</span><span>天候不良</span>
-              </button>
-              <button onClick={() => { setThankTarget(d); setThankResult(null) }}
-                className="flex flex-col items-center justify-center gap-0.5 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
-                <span>🙏</span><span>お礼送信</span>
-              </button>
-            </div>
-            {/* サブ操作ボタン */}
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={() => router.push(`/admin/plans/${d.id}`)}
-                className="text-xs bg-navy-50 text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg font-medium">
-                プランを設定
-              </button>
-              <a href={`/api/admin/export?dateId=${d.id}`} download
-                className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
-                📥 乗船名簿
-              </a>
-              <button onClick={() => unlockPlans(d.id)}
-                className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg font-medium">
-                🔓 ロック解除
-              </button>
-              <button onClick={() => openCopyModal(d)}
-                className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-3 py-1.5 rounded-lg font-medium">
-                📋 コピー作成
-              </button>
-              <button onClick={() => toggleOpen(d.id, d.is_open)}
-                className="text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg font-medium">
-                {d.is_open ? '非公開にする' : '公開する'}
-              </button>
-              <button onClick={() => handleDelete(d.id)}
-                className="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-medium">
-                削除
-              </button>
-            </div>
-          </div>
-        ))}
+            )
+          })
+        })()}
       </div>
 
       {/* 出航決定通知モーダル */}
