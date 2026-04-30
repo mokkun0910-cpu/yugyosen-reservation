@@ -56,8 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { href: '/admin', label: 'ホーム', icon: '🏠' },
-    { href: '/admin/dates', label: '出船日', icon: '📅' },
-    { href: '/admin/reservations', label: '予約', icon: '📋' },
+    { href: '/admin/dates', label: '予約管理', icon: '📅' },
     { href: '/admin/cancellations', label: 'キャンセル', icon: '❌' },
   ]
 
