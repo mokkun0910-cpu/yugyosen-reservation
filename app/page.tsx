@@ -4,23 +4,33 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 let cachedLineUserId = ''
-async function initLiff(): Promise<string> {
-  if (cachedLineUserId) return cachedLineUserId
+// LIFFの初期化状態: 'loading' | 'ok' | 'no_liff_id'
+let liffStatus: 'loading' | 'ok' | 'no_liff_id' = 'loading'
+
+async function initLiff(): Promise<{ userId: string; status: 'ok' | 'no_liff_id' }> {
+  if (cachedLineUserId) return { userId: cachedLineUserId, status: 'ok' }
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-  if (!liffId) return ''
+  if (!liffId) {
+    liffStatus = 'no_liff_id'
+    return { userId: '', status: 'no_liff_id' }
+  }
   try {
     const liffModule = await import('@line/liff')
     const liff = liffModule.default
     await liff.init({ liffId })
-    if (liff.isInClient() && liff.isLoggedIn()) {
-      const profile = await liff.getProfile()
-      cachedLineUserId = profile.userId
-      return cachedLineUserId
+    if (!liff.isLoggedIn()) {
+      // ブラウザからのアクセス → LINEログイン画面にリダイレクト
+      liff.login()
+      return { userId: '', status: 'loading' }
     }
+    const profile = await liff.getProfile()
+    cachedLineUserId = profile.userId
+    liffStatus = 'ok'
+    return { userId: cachedLineUserId, status: 'ok' }
   } catch {
-    // 無視
+    liffStatus = 'no_liff_id'
+    return { userId: '', status: 'no_liff_id' }
   }
-  return ''
 }
 
 type DepartureDate = {
@@ -79,14 +89,17 @@ export default function HomePage() {
   const router = useRouter()
   const [dates, setDates] = useState<DepartureDate[]>([])
   const [loading, setLoading] = useState(true)
+  const [liffReady, setLiffReady] = useState(false)
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState<DepartureDate | null>(null)
   const [lineUserId, setLineUserId] = useState('')
 
   useEffect(() => {
-    initLiff().then((uid) => {
-      if (uid) setLineUserId(uid)
+    initLiff().then(({ userId, status }) => {
+      if (status === 'loading') return // LINEログインにリダイレクト中
+      if (userId) setLineUserId(userId)
+      setLiffReady(true)
     })
   }, [])
 
@@ -179,6 +192,17 @@ export default function HomePage() {
       const d = getDateInfo(dateStr)!
       setSelectedDate(d)
     }
+  }
+
+  // LIFFの準備ができるまでローディング画面を表示
+  if (!liffReady) {
+    return (
+      <div className="min-h-screen bg-navy-700 flex flex-col items-center justify-center p-6">
+        <div className="text-gold-400 text-xs tracking-widest mb-2">TAKAYOSHI RYOKAN</div>
+        <div className="text-white font-serif text-xl font-bold mb-6">遊漁船 高喜丸</div>
+        <div className="text-navy-200 text-sm animate-pulse">LINEと連携しています...</div>
+      </div>
+    )
   }
 
   return (
