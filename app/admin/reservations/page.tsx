@@ -37,7 +37,7 @@ export default function AdminReservationsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('reservations')
-      .select('*, plans(name, departure_time, departure_dates(date))')
+      .select('*, plans(name, departure_time, departure_dates(date, departure_notified_at, weather_notified_at, thankyou_notified_at))')
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
     const sorted = (data || []).sort((a, b) => {
@@ -186,6 +186,30 @@ export default function AdminReservationsPage() {
                         </button>
                       </div>
                     </div>
+                    {/* LINE通知送信状況 */}
+                    {(() => {
+                      const dd = r.plans?.departure_dates
+                      const hasLine = !!r.line_user_id
+                      const badges = [
+                        { label: '⚓出航決定', sent: dd?.departure_notified_at },
+                        { label: '⛈天候不良', sent: dd?.weather_notified_at },
+                        { label: '🙏お礼', sent: dd?.thankyou_notified_at },
+                      ].filter(b => b.sent)
+                      if (badges.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {badges.map(b => (
+                            <span key={b.label} className={`text-xs px-2 py-0.5 rounded-full ${
+                              hasLine
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-gray-100 text-gray-400 border border-gray-200'
+                            }`}>
+                              {b.label} {hasLine ? '✓送信済' : '未連携'}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     <button
                       onClick={() => loadMembers(r.id)}
                       className="text-xs text-navy-600 border border-navy-200 bg-navy-50 px-3 py-1.5 rounded-lg w-full hover:bg-navy-100 transition-colors">

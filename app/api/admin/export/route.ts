@@ -12,10 +12,10 @@ export async function GET(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 出船日情報を取得
+  // 出船日情報を取得（通知送信状況を含む）
   const { data: departureDate, error: dateError } = await db
     .from('departure_dates')
-    .select('date')
+    .select('date, departure_notified_at, weather_notified_at, thankyou_notified_at')
     .eq('id', dateId)
     .single()
 
@@ -74,6 +74,22 @@ export async function GET(req: NextRequest) {
 
   const date = departureDate.date
 
+  // 通知送信状況ラベルを生成
+  function notifyLabel(sentAt: string | null, hasLine: boolean): string {
+    if (!sentAt) return '未送信'
+    if (!hasLine) return 'LINE未連携'
+    const d = new Date(sentAt)
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const hh = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    return `送信済 (${mm}/${dd} ${hh}:${min})`
+  }
+
+  const depNotified = (departureDate as any).departure_notified_at || null
+  const weatherNotified = (departureDate as any).weather_notified_at || null
+  const thankNotified = (departureDate as any).thankyou_notified_at || null
+
   // Excelのデータ行を構築
   const rows: any[] = []
 
@@ -81,9 +97,15 @@ export async function GET(req: NextRequest) {
     const plan = r.plans as any
     const members = (r.members as any[]) || []
     const totalMembers: number = r.total_members || members.length || 1
+    const hasLine = !!r.line_user_id
+
+    const notifyCols = {
+      '⚓出航決定通知': notifyLabel(depNotified, hasLine),
+      '⛈天候不良通知': notifyLabel(weatherNotified, hasLine),
+      '🙏お礼通知': notifyLabel(thankNotified, hasLine),
+    }
 
     if (members.length > 0) {
-      // メンバーレコードがある場合はそのまま出力
       for (let i = 0; i < members.length; i++) {
         const m = members[i]
         rows.push({
@@ -101,10 +123,10 @@ export async function GET(req: NextRequest) {
           '緊急連絡先氏名': m.is_completed ? (m.emergency_contact_name || '') : '',
           '緊急連絡先電話': m.is_completed ? (m.emergency_contact_phone || '') : '',
           '入力状況': m.is_completed ? '入力済み' : '未入力',
+          ...notifyCols,
         })
       }
     } else {
-      // メンバーレコードが0件でも予約はtotal_members分の行を出力（未入力扱い）
       for (let i = 0; i < totalMembers; i++) {
         rows.push({
           '出船日': date,
@@ -121,6 +143,7 @@ export async function GET(req: NextRequest) {
           '緊急連絡先氏名': '',
           '緊急連絡先電話': '',
           '入力状況': '未入力',
+          ...notifyCols,
         })
       }
     }
@@ -128,20 +151,10 @@ export async function GET(req: NextRequest) {
 
   if (rows.length === 0) {
     rows.push({
-      '出船日': date,
-      '釣り物': '',
-      '出船時刻': '',
-      '予約番号': '',
-      '代表者氏名': '',
-      '代表者電話': '',
-      '乗船者No': '',
-      '乗船者氏名': '',
-      '生年月日': '',
-      '住所': '',
-      '電話番号': '',
-      '緊急連絡先氏名': '',
-      '緊急連絡先電話': '',
-      '入力状況': '',
+      '出船日': date, '釣り物': '', '出船時刻': '', '予約番号': '',
+      '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
+      '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '',
+      '入力状況': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
     })
   }
 
@@ -165,6 +178,9 @@ export async function GET(req: NextRequest) {
     { wch: 14 }, // 緊急連絡先氏名
     { wch: 16 }, // 緊急連絡先電話
     { wch: 10 }, // 入力状況
+    { wch: 20 }, // ⚓出航決定通知
+    { wch: 20 }, // ⛈天候不良通知
+    { wch: 20 }, // 🙏お礼通知
   ]
 
   XLSX.utils.book_append_sheet(wb, ws, '乗船名簿')

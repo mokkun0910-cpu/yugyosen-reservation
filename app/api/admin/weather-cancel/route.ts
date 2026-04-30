@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 送信日時を記録
+    await db.from('departure_dates').update({ weather_notified_at: new Date().toISOString() }).eq('id', dateId)
+
     return NextResponse.json({
       ok: true,
       cancelled: (reservations as any[]).length,
