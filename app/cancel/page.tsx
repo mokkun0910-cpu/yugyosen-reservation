@@ -156,7 +156,7 @@ function CancelContent() {
           onClick={() => {
             if (step === 'confirm') setStep('select')
             else if (step === 'select') setStep('phone')
-            else closeWindow()
+            else router.push('/')
           }}
           className="text-navy-200 text-sm mb-2 block hover:text-gold-400 transition-colors">← 戻る</button>
         <div className="font-bold text-lg font-serif tracking-wide">予約確認・キャンセル</div>
