@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const dateIds = Array.from(new Set((plans || []).map((p: any) => p.departure_date_id)))
     const { data: dates } = await db
       .from('departure_dates')
-      .select('id, date')
+      .select('id, date, departure_notified_at, weather_notified_at, thankyou_notified_at')
       .in('id', dateIds)
 
     // Step5: ãã¼ã¿ãçµå
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
         plans: plan ? {
           name: plan.name,
           departure_time: plan.departure_time,
-          departure_dates: date ? { date: date.date } : null,
+          departure_dates: date ? { date: date.date, departure_notified_at: date.departure_notified_at, weather_notified_at: date.weather_notified_at, thankyou_notified_at: date.thankyou_notified_at } : null,
         } : null,
       }
     })

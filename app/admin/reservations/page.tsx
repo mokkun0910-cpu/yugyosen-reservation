@@ -35,12 +35,13 @@ export default function AdminReservationsPage() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('reservations')
-      .select('*, plans(name, departure_time, departure_dates(date, departure_notified_at, weather_notified_at, thankyou_notified_at))')
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: false })
-    const sorted = (data || []).sort((a, b) => {
+    const pw = sessionStorage.getItem('admin_pw') || ''
+    const res = await fetch('/api/admin/reservations', {
+      headers: { 'x-admin-password': pw },
+      cache: 'no-store',
+    })
+    const json = await res.json()
+    const sorted = (json.reservations || []).sort((a: any, b: any) => {
       const da = a.plans?.departure_dates?.date || ''
       const db = b.plans?.departure_dates?.date || ''
       return da < db ? -1 : da > db ? 1 : 0

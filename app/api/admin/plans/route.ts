@@ -58,7 +58,7 @@ export async function DELETE(req: NextRequest) {
     )
   }
 
-  // キャンセル済み予約の乗船者データと予約を先に削除（外部キー制約対策）
+  // キャンセル済み予約の関連データを先に全て削除（外部キー制約対策）
   const { data: cancelledReservations } = await db
     .from('reservations')
     .select('id')
@@ -67,6 +67,7 @@ export async function DELETE(req: NextRequest) {
   if (cancelledReservations && cancelledReservations.length > 0) {
     const ids = cancelledReservations.map((r: any) => r.id)
     await db.from('members').delete().in('reservation_id', ids)
+    await db.from('cancellation_requests').delete().in('reservation_id', ids)
     await db.from('reservations').delete().in('id', ids)
   }
 
