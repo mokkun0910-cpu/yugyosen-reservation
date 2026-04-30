@@ -45,17 +45,29 @@ export async function DELETE(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 予約があれば削除不可
-  const { data: reservations } = await db
+  // 有効な予約（キャンセル以外）があれば削除不可
+  const { data: activeReservations } = await db
     .from('reservations')
     .select('id')
     .eq('plan_id', id)
     .neq('status', 'cancelled')
-  if (reservations && reservations.length > 0) {
+  if (activeReservations && activeReservations.length > 0) {
     return NextResponse.json(
-      { error: `このプランには予約が${reservations.length}件あるため削除できません。` },
+      { error: `このプランには有効な予約が${activeReservations.length}件あるため削除できません。先にキャンセル処理を行ってください。` },
       { status: 400 }
     )
+  }
+
+  // キャンセル済み予約の乗船者データと予約を先に削除（外部キー制約対策）
+  const { data: cancelledReservations } = await db
+    .from('reservations')
+    .select('id')
+    .eq('plan_id', id)
+    .eq('status', 'cancelled')
+  if (cancelledReservations && cancelledReservations.length > 0) {
+    const ids = cancelledReservations.map((r: any) => r.id)
+    await db.from('members').delete().in('reservation_id', ids)
+    await db.from('reservations').delete().in('id', ids)
   }
 
   const { error } = await db.from('plans').delete().eq('id', id)
