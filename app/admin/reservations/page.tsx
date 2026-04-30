@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa } from '@/lib/utils'
 
 export default function AdminReservationsPage() {
+  const router = useRouter()
   const [reservations, setReservations] = useState<any[]>([])
   const [members, setMembers] = useState<Record<string, any[]>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -75,10 +77,16 @@ export default function AdminReservationsPage() {
             <span className="text-sm font-normal text-gray-400 ml-2">({reservations.length}件)</span>
           </h2>
         </div>
-        <button onClick={load}
-          className="text-xs bg-white text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg hover:bg-cream-50 transition-colors">
-          🔄 更新
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => router.push('/admin/reservations/new')}
+            className="text-xs bg-navy-700 text-white px-3 py-1.5 rounded-lg hover:bg-navy-800 transition-colors font-medium">
+            📞 電話予約を入力
+          </button>
+          <button onClick={load}
+            className="text-xs bg-white text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg hover:bg-cream-50 transition-colors">
+            🔄 更新
+          </button>
+        </div>
       </div>
 
       {loading && (
