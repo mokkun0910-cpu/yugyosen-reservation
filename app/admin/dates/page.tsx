@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa } from '@/lib/utils'
@@ -10,6 +10,7 @@ export default function AdminDatesPage() {
   const [newDate, setNewDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const initializedRef = useRef(false)
 
   // コピー用の状態
   const [copySource, setCopySource] = useState<any | null>(null)
@@ -51,10 +52,13 @@ export default function AdminDatesPage() {
       .order('date')
     const list = data || []
     setDates(list)
-    // 直近の未来の出船日を自動展開
-    const today = new Date().toISOString().slice(0, 10)
-    const next = list.find(d => d.date >= today)
-    if (next) setOpenIds(prev => { const s = new Set(prev); s.add(next.id); return s })
+    // 初回ロード時のみ直近の出船日を自動展開
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      const today = new Date().toISOString().slice(0, 10)
+      const next = list.find((d: any) => d.date >= today)
+      if (next) setOpenIds(new Set([next.id]))
+    }
   }
 
   function toggleId(id: string) {
@@ -83,7 +87,17 @@ export default function AdminDatesPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('この出船日を削除しますか？')) return
-    await supabase.from('departure_dates').delete().eq('id', id)
+    const res = await fetch('/api/admin/dates', {
+      method: 'DELETE',
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ id }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert('削除に失敗しました: ' + (data.error || '不明なエラー'))
+      return
+    }
+    setOpenIds(prev => { const s = new Set(prev); s.delete(id); return s })
     await fetchDates()
   }
 
