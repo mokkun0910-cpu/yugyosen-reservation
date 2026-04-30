@@ -54,12 +54,35 @@ function PlanCard({
   dateId: string
   onBook: (planId: string, planName: string, members: number) => void
 }) {
+  const remaining = plan.remainingSeats ?? plan.capacity
   const [members, setMembers] = useState(1)
-  const maxSeats = plan.capacity
+
+  if (remaining <= 0) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 opacity-75">
+        <div className="font-bold text-navy-700 text-sm mb-1 font-serif">{plan.name}</div>
+        <div className="text-xs text-gray-500 mb-3">
+          🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
+        </div>
+        <div className="text-center py-2 text-sm font-bold text-red-500 bg-red-50 rounded-lg">
+          × 満員
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-cream-50 border border-gold-100 rounded-xl p-4">
-      <div className="font-bold text-navy-700 text-sm mb-1 font-serif">{plan.name}</div>
+      <div className="flex items-start justify-between mb-1">
+        <div className="font-bold text-navy-700 text-sm font-serif">{plan.name}</div>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 ${
+          remaining <= 3
+            ? 'bg-red-100 text-red-600'
+            : 'bg-green-100 text-green-700'
+        }`}>
+          残り {remaining} 名
+        </span>
+      </div>
       <div className="text-xs text-gray-500 mb-3">
         🐟 {plan.target_fish}　⏰ {plan.departure_time?.slice(0, 5)}　定員 {plan.capacity}名
       </div>
@@ -70,7 +93,7 @@ function PlanCard({
           value={members}
           onChange={(e) => setMembers(Number(e.target.value))}
         >
-          {Array.from({ length: maxSeats }, (_, i) => i + 1).map((n) => (
+          {Array.from({ length: remaining }, (_, i) => i + 1).map((n) => (
             <option key={n} value={n}>{n}名</option>
           ))}
         </select>
@@ -119,18 +142,24 @@ export default function HomePage() {
       const enriched = await Promise.all(
         datesData.map(async (d: any) => {
           const planIds = d.plans.map((p: any) => p.id)
-          let reservedCount = 0
+          const planReservedMap: Record<string, number> = {}
           if (planIds.length > 0) {
             const { data: resData } = await supabase
               .from('reservations')
-              .select('total_members')
+              .select('plan_id, total_members')
               .in('plan_id', planIds)
               .neq('status', 'cancelled')
-            reservedCount = (resData || []).reduce(
-              (sum: number, r: any) => sum + r.total_members, 0
-            )
+            for (const r of resData || []) {
+              planReservedMap[r.plan_id] = (planReservedMap[r.plan_id] || 0) + r.total_members
+            }
           }
-          return { ...d, reservedCount }
+          const enrichedPlans = d.plans.map((p: any) => ({
+            ...p,
+            reservedCount: planReservedMap[p.id] || 0,
+            remainingSeats: Math.max(0, p.capacity - (planReservedMap[p.id] || 0)),
+          }))
+          const totalReserved = Object.values(planReservedMap).reduce((s: number, v) => s + (v as number), 0)
+          return { ...d, plans: enrichedPlans, reservedCount: totalReserved }
         })
       )
       setDates(enriched)
