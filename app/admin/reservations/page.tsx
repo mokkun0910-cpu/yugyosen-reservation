@@ -11,6 +11,26 @@ export default function AdminReservationsPage() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [openDates, setOpenDates] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  async function handleCancel(r: any) {
+    const label = `${r.representative_name}（${r.reservation_number}）`
+    if (!confirm(`「${label}」の予約をキャンセルしますか？\n乗船名簿からも削除されます。`)) return
+    setCancelling(r.id)
+    const pw = sessionStorage.getItem('admin_pw') || ''
+    const res = await fetch('/api/admin/cancel-reservation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': pw },
+      body: JSON.stringify({ reservationId: r.id }),
+    })
+    const data = await res.json()
+    setCancelling(null)
+    if (!res.ok) {
+      alert('キャンセルに失敗しました: ' + (data.error || '不明なエラー'))
+      return
+    }
+    await load()
+  }
 
   async function load() {
     setLoading(true)
@@ -146,13 +166,21 @@ export default function AdminReservationsPage() {
                         </div>
                         <div className="text-xs text-gray-600">📞 {r.representative_phone}</div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                        r.status === 'confirmed'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {r.status === 'confirmed' ? '✓ 確定' : '⏳ 入力待ち'}
-                      </span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          r.status === 'confirmed'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {r.status === 'confirmed' ? '✓ 確定' : '⏳ 入力待ち'}
+                        </span>
+                        <button
+                          onClick={() => handleCancel(r)}
+                          disabled={cancelling === r.id}
+                          className="text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50">
+                          {cancelling === r.id ? '処理中…' : '📞 キャンセル'}
+                        </button>
+                      </div>
                     </div>
                     <button
                       onClick={() => loadMembers(r.id)}
