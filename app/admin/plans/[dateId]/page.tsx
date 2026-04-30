@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa, formatPrice } from '@/lib/utils'
 
-const emptyPlan = { name: '', target_fish: '', departure_time: '', price: '', capacity: '4' }
+const emptyPlan = { name: '', target_fish: '', departure_time: '', price: '', capacity: '10' }
 
 export default function AdminPlansPage() {
   const router = useRouter()
@@ -149,11 +149,11 @@ export default function AdminPlansPage() {
               <label className="label">定員</label>
               <select className="input-field" value={form.capacity}
                 onChange={(e) => setForm({ ...form, capacity: e.target.value })}>
-                {[1, 2, 3, 4].map((n) => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                   <option key={n} value={n}>{n}名</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">高喜丸の最大定員は4名です</p>
+              <p className="text-xs text-gray-400 mt-1">高喜丸の最大定員は10名です</p>
             </div>
 
             {error && (
