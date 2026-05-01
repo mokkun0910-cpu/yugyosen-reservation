@@ -7,8 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export function checkAdminAuth(req: NextRequest): NextResponse | null {
   const password = req.headers.get('x-admin-password')
-  const adminPassword = process.env.ADMIN_PASSWORD || 'captain2024'
-  if (!password || password !== adminPassword) {
+  const adminPassword = process.env.ADMIN_PASSWORD
+  if (!adminPassword || !password || password !== adminPassword) {
     return NextResponse.json({ error: '認証が必要です。' }, { status: 401 })
   }
   return null
