@@ -745,12 +745,34 @@ export default function AdminDatesPage() {
               「{formatDateJa(copySource.date)}」の全プラン（{copySource.plans?.length || 0}件）を別の日付にコピーします
             </p>
             <label className="label">コピー先の日付</label>
-            <input type="date" className="input-field mb-4" value={copyTargetDate}
-              onChange={(e) => setCopyTargetDate(e.target.value)} min={today} />
-            {copyError && <p className="text-xs text-red-500 mb-3">{copyError}</p>}
+            <input type="date" className="input-field mb-2" value={copyTargetDate}
+              onChange={(e) => { setCopyTargetDate(e.target.value); setCopyError('') }} min={today} />
+            {/* すでにプランがある日付を選択した場合の警告 */}
+            {copyTargetDate && (() => {
+              const existing = dates.find(d => d.date === copyTargetDate)
+              if (existing && existing.plans && existing.plans.length > 0) {
+                return (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-xs text-red-700">
+                    ⚠️ この日付にはすでに {existing.plans.length} 件のプランが登録されています。<br />
+                    別の日付を選択してください。
+                  </div>
+                )
+              }
+              if (existing) {
+                return (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-xs text-yellow-700">
+                    ℹ️ この日付はすでに出船日として登録されています（プランなし）。コピーするとプランが追加されます。
+                  </div>
+                )
+              }
+              return <div className="mb-3" />
+            })()}
+            {copyError && <p className="text-xs text-red-500 mb-3">⚠️ {copyError}</p>}
             <div className="flex gap-2">
               <button onClick={() => setCopySource(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
-              <button onClick={handleCopy} disabled={copyLoading || !copyTargetDate}
+              <button
+                onClick={handleCopy}
+                disabled={copyLoading || !copyTargetDate || !!(copyTargetDate && dates.find(d => d.date === copyTargetDate)?.plans?.length > 0)}
                 className="flex-1 py-2 rounded-lg bg-navy-600 text-white text-sm font-bold disabled:opacity-50">
                 {copyLoading ? 'コピー中...' : 'コピーする'}
               </button>

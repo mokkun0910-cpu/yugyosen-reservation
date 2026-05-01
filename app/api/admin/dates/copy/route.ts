@@ -22,6 +22,19 @@ export async function POST(req: NextRequest) {
   let targetDateId: string
   if (existingList && existingList.length > 0) {
     targetDateId = existingList[0].id
+
+    // すでにプランが存在する場合はエラー
+    const { data: existingPlans } = await db
+      .from('plans')
+      .select('id')
+      .eq('departure_date_id', targetDateId)
+
+    if (existingPlans && existingPlans.length > 0) {
+      return NextResponse.json(
+        { error: `この日付にはすでに${existingPlans.length}件のプランが登録されています。別の日付を選択してください。` },
+        { status: 409 }
+      )
+    }
   } else {
     const { data: newDateData, error: dateError } = await db
       .from('departure_dates')
