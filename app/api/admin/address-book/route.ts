@@ -117,7 +117,7 @@ export async function PATCH(req: NextRequest) {
   if (authError) return authError
 
   const body = await req.json()
-  const { id, memo, name, phone, birth_date, address, emergency_contact_name, emergency_contact_phone } = body
+  const { id, memo, name, furigana, phone, birth_date, address, emergency_contact_name, emergency_contact_phone } = body
 
   if (!id) return NextResponse.json({ error: 'idが必要です。' }, { status: 400 })
 
@@ -125,6 +125,7 @@ export async function PATCH(req: NextRequest) {
   const payload: any = {}
   if (memo !== undefined) payload.memo = memo
   if (name) payload.name = name
+  if (furigana !== undefined) payload.furigana = furigana || null
   if (phone) payload.phone = phone
   if (birth_date !== undefined) payload.birth_date = birth_date || null
   if (address !== undefined) payload.address = address || null
