@@ -15,10 +15,11 @@ export async function GET(req: NextRequest) {
   let query = db
     .from('address_book')
     .select('*')
-    .order('updated_at', { ascending: false })
+    .order('furigana', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true })
 
   if (q) {
-    query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+    query = query.or(`name.ilike.%${q}%,furigana.ilike.%${q}%,phone.ilike.%${q}%`)
   }
 
   const { data, error } = await query

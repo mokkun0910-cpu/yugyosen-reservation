@@ -8,6 +8,7 @@ export async function upsertAddressBook(
   entry: {
     name: string
     phone: string
+    furigana?: string | null
     birth_date?: string | null
     address?: string | null
     emergency_contact_name?: string | null
@@ -28,11 +29,11 @@ export async function upsertAddressBook(
     name: entry.name,
     phone: entry.phone,
   }
+  if (entry.furigana) payload.furigana = entry.furigana
   if (entry.birth_date) payload.birth_date = entry.birth_date
   if (entry.address) payload.address = entry.address
   if (entry.emergency_contact_name) payload.emergency_contact_name = entry.emergency_contact_name
   if (entry.emergency_contact_phone) payload.emergency_contact_phone = entry.emergency_contact_phone
-  // LINE IDは新しいものがあれば更新、なければ既存を維持
   if (entry.line_user_id) payload.line_user_id = entry.line_user_id
 
   if (existing) {

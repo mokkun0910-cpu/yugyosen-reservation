@@ -13,6 +13,7 @@ function ReserveFormContent() {
 
   const [form, setForm] = useState({
     name: '',
+    furigana: '',
     phone: '',
     lineUserId: lineUserIdFromUrl,
     birth_date: '',
@@ -37,7 +38,7 @@ function ReserveFormContent() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name || !form.phone || !form.birth_date || !form.address || !form.emergency_contact_name || !form.emergency_contact_phone) {
+    if (!form.name || !form.furigana || !form.phone || !form.birth_date || !form.address || !form.emergency_contact_name || !form.emergency_contact_phone) {
       setError('すべての必須項目を入力してください。')
       return
     }
@@ -50,6 +51,7 @@ function ReserveFormContent() {
       body: JSON.stringify({
         planId,
         representativeName: form.name,
+        representativeFurigana: form.furigana,
         representativePhone: form.phone,
         lineUserId: form.lineUserId,
         totalMembers: members,
@@ -101,6 +103,10 @@ function ReserveFormContent() {
               <div>
                 <label className="label">氏名 <span className="text-red-500">*</span></label>
                 <input className="input-field" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" required />
+              </div>
+              <div>
+                <label className="label">ふりがな <span className="text-red-500">*</span></label>
+                <input className="input-field" name="furigana" value={form.furigana} onChange={handleChange} placeholder="例：やまだ たろう" required />
               </div>
               <div>
                 <label className="label">電話番号 <span className="text-red-500">*</span></label>

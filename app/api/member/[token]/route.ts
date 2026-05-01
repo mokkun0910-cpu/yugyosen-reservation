@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const { token } = params
   const body = await req.json()
-  const { name, birth_date, address, phone, emergency_contact_name, emergency_contact_phone } = body
+  const { name, furigana, birth_date, address, phone, emergency_contact_name, emergency_contact_phone } = body
 
   const db = createServerClient()
 
@@ -26,7 +26,7 @@ export async function POST(
 
   // 乗船者情報を更新
   await db.from('members').update({
-    name, birth_date, address, phone,
+    name, furigana: furigana || null, birth_date, address, phone,
     emergency_contact_name, emergency_contact_phone,
     is_completed: true,
   }).eq('input_token', token)
@@ -34,7 +34,7 @@ export async function POST(
   // アドレス帳に同行者情報を自動登録・更新
   if (name && phone) {
     await upsertAddressBook(db, {
-      name, phone, birth_date, address,
+      name, furigana: furigana || null, phone, birth_date, address,
       emergency_contact_name, emergency_contact_phone,
     }).catch(console.error)
   }

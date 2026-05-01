@@ -7,7 +7,7 @@ import { upsertAddressBook } from '@/lib/addressBook'
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
-    planId, representativeName, representativePhone, lineUserId, totalMembers,
+    planId, representativeName, representativeFurigana, representativePhone, lineUserId, totalMembers,
     representativeBirthDate, representativeAddress, representativeEmergencyName, representativeEmergencyPhone,
   } = body
 
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       plan_id: planId,
       reservation_number: reservationNumber,
       representative_name: representativeName,
+      representative_furigana: representativeFurigana || null,
       representative_phone: representativePhone,
       line_user_id: lineUserId || null,
       total_members: totalMembers,
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
   // アドレス帳に代表者情報を自動登録・更新
   await upsertAddressBook(db, {
     name: representativeName,
+    furigana: representativeFurigana || null,
     phone: representativePhone,
     birth_date: representativeBirthDate || null,
     address: representativeAddress || null,

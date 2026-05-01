@@ -9,7 +9,7 @@ export default function MemberInputPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    name: '', birth_date: '', address: '',
+    name: '', furigana: '', birth_date: '', address: '',
     phone: '', emergency_contact_name: '', emergency_contact_phone: '',
   })
 
@@ -33,7 +33,7 @@ export default function MemberInputPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const required = ['name', 'birth_date', 'address', 'phone', 'emergency_contact_name', 'emergency_contact_phone']
+    const required = ['name', 'furigana', 'birth_date', 'address', 'phone', 'emergency_contact_name', 'emergency_contact_phone']
     for (const key of required) {
       if (!form[key as keyof typeof form]) {
         setError('すべての項目を入力してください。')
@@ -96,6 +96,10 @@ export default function MemberInputPage() {
           <div>
             <label className="label">氏名 <span className="text-red-500">*</span></label>
             <input className="input-field" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" />
+          </div>
+          <div>
+            <label className="label">ふりがな <span className="text-red-500">*</span></label>
+            <input className="input-field" name="furigana" value={form.furigana} onChange={handleChange} placeholder="例：やまだ たろう" />
           </div>
           <div>
             <label className="label">生年月日 <span className="text-red-500">*</span></label>

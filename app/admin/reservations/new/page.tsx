@@ -6,6 +6,7 @@ import { formatDateJa } from '@/lib/utils'
 
 const emptyForm = {
   name: '',
+  furigana: '',
   phone: '',
   birth_date: '',
   address: '',
@@ -80,6 +81,7 @@ export default function AdminNewReservationPage() {
       body: JSON.stringify({
         planId: selectedPlanId,
         representativeName: form.name,
+        representativeFurigana: form.furigana || null,
         representativePhone: form.phone,
         totalMembers,
         representativeBirthDate: form.birth_date || null,
@@ -260,6 +262,12 @@ export default function AdminNewReservationPage() {
               <input className="input-field" value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="例：山田 太郎" />
+            </div>
+            <div>
+              <label className="label">ふりがな</label>
+              <input className="input-field" value={form.furigana}
+                onChange={e => setForm({ ...form, furigana: e.target.value })}
+                placeholder="例：やまだ たろう" />
             </div>
             <div>
               <label className="label">電話番号 <span className="text-red-500">*</span></label>
