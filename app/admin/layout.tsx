@@ -59,6 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/dates', label: '予約管理', icon: '📅' },
     { href: '/admin/cancellations', label: 'キャンセル', icon: '❌' },
     { href: '/admin/address-book', label: 'アドレス帳', icon: '📒' },
+    { href: '/admin/history', label: '履歴', icon: '📊' },
   ]
 
   return (
