@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendReservationConfirmed } from '@/lib/line'
 import { formatDateJa } from '@/lib/utils'
+import { upsertAddressBook } from '@/lib/addressBook'
 
 export async function POST(
   req: NextRequest,
@@ -29,6 +30,14 @@ export async function POST(
     emergency_contact_name, emergency_contact_phone,
     is_completed: true,
   }).eq('input_token', token)
+
+  // アドレス帳に同行者情報を自動登録・更新
+  if (name && phone) {
+    await upsertAddressBook(db, {
+      name, phone, birth_date, address,
+      emergency_contact_name, emergency_contact_phone,
+    }).catch(console.error)
+  }
 
   // 全員の入力が完了したか確認
   const reservationId = member.reservation_id

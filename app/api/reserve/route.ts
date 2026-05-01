@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendReservationPending, sendReservationConfirmed, sendCaptainNotification } from '@/lib/line'
 import { generateReservationNumber } from '@/lib/utils'
+import { upsertAddressBook } from '@/lib/addressBook'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -79,6 +80,17 @@ export async function POST(req: NextRequest) {
       is_completed: true,
     }).eq('id', members[0].id)
   }
+
+  // アドレス帳に代表者情報を自動登録・更新
+  await upsertAddressBook(db, {
+    name: representativeName,
+    phone: representativePhone,
+    birth_date: representativeBirthDate || null,
+    address: representativeAddress || null,
+    emergency_contact_name: representativeEmergencyName || null,
+    emergency_contact_phone: representativeEmergencyPhone || null,
+    line_user_id: lineUserId || null,
+  }).catch(console.error)
 
   // 同日の他プランをロック（最初の予約の場合）
   if (currentCount === 0) {
