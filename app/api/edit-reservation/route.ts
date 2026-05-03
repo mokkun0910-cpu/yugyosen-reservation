@@ -67,6 +67,9 @@ export async function PATCH(req: NextRequest) {
   if (!reservationId || !phone) {
     return NextResponse.json({ error: '必須項目が不足しています。' }, { status: 400 })
   }
+  if (totalMembers !== undefined && (typeof totalMembers !== 'number' || totalMembers < 1 || !Number.isInteger(totalMembers))) {
+    return NextResponse.json({ error: '人数は1名以上の整数で指定してください。' }, { status: 400 })
+  }
 
   const db = createServerClient()
 

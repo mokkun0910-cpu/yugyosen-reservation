@@ -104,9 +104,26 @@ function EditReservationForm() {
     )
   }
 
+  // 現在のステップに応じた「戻る」先
+  function handleBack() {
+    if (selected) {
+      setSelected(null); setSaveError('')           // STEP3 → STEP2
+    } else if (reservations.length > 0) {
+      setReservations([]); setFindError('')              // STEP2 → STEP1（電話番号は保持）
+    } else {
+      window.location.href = '/'                    // STEP1 → トップ
+    }
+  }
+
   return (
     <div className="min-h-screen bg-cream-50 p-4">
       <div className="max-w-sm mx-auto pt-4">
+        {/* 戻るボタン（全ステップ共通） */}
+        <button onClick={handleBack}
+          className="text-navy-600 text-sm mb-4 block hover:text-gold-500 transition-colors">
+          ← {selected ? '予約選択に戻る' : reservations.length > 0 ? '電話番号入力に戻る' : 'トップページに戻る'}
+        </button>
+
         <div className="flex items-center gap-2 mb-5">
           <div className="w-1 h-5 bg-gold-500 rounded-full" />
           <h1 className="text-lg font-bold text-navy-700 font-serif">予約内容の変更</h1>
@@ -158,10 +175,6 @@ function EditReservationForm() {
                 </div>
               </button>
             ))}
-            <button onClick={() => { setReservations([]); setPhone('') }}
-              className="w-full py-2 text-sm text-gray-500 text-center">
-              ← 電話番号を入力し直す
-            </button>
           </div>
         )}
 
@@ -217,8 +230,7 @@ function EditReservationForm() {
               )}
 
               <div className="flex gap-2 pt-1">
-                <button type="button"
-                  onClick={() => { setSelected(null); setSaveError('') }}
+                <button type="button" onClick={handleBack}
                   className="flex-1 py-3 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium">
                   戻る
                 </button>

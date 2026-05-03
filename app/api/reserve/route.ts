@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
   if (members && members.length > 0 && representativeBirthDate) {
     await db.from('members').update({
       name: representativeName,
+      furigana: representativeFurigana || null,   // ← 修正: furigana追加
       birth_date: representativeBirthDate,
       address: representativeAddress,
       phone: representativePhone,
