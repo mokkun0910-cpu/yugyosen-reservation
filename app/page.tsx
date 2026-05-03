@@ -33,11 +33,22 @@ async function initLiff(): Promise<{ userId: string; status: 'ok' | 'no_liff_id'
   }
 }
 
+type PlanInfo = {
+  id: string
+  name: string
+  target_fish: string
+  departure_time: string
+  is_locked: boolean
+  capacity: number
+  reservedCount: number
+  remainingSeats: number
+}
+
 type DepartureDate = {
   id: string
   date: string
   is_open: boolean
-  plans: { id: string; is_locked: boolean; capacity: number }[]
+  plans: PlanInfo[]
   reservedCount: number
 }
 
@@ -170,15 +181,17 @@ export default function HomePage() {
 
   function getDateStatus(d: DepartureDate): DayStatus {
     if (!d.plans || d.plans.length === 0) return 'noPlan'
-    const totalCapacity = d.plans.reduce((sum: number, p: any) => sum + p.capacity, 0)
-    if (d.reservedCount >= totalCapacity) return 'full'
-    if (d.reservedCount === 0) return 'available'   // 予約なし → 空きあり
-    return 'partial'                                 // 予約あり・空きあり → 残り人数表示
+    // アクティブプラン（is_locked=false）を探す
+    const activePlan = d.plans.find(p => !p.is_locked)
+    if (!activePlan) return 'full' // 全プランロック = 満員
+    if (activePlan.remainingSeats <= 0) return 'full'
+    if (activePlan.reservedCount === 0) return 'available' // 予約なし → 空きあり
+    return 'partial'                                       // 予約あり・空きあり → 残り人数表示
   }
 
   function getDateRemaining(d: DepartureDate): number {
-    const totalCapacity = d.plans.reduce((sum: number, p: any) => sum + p.capacity, 0)
-    return Math.max(0, totalCapacity - d.reservedCount)
+    const activePlan = d.plans.find(p => !p.is_locked)
+    return activePlan?.remainingSeats ?? 0
   }
 
   function getDateInfo(dateStr: string): DepartureDate | undefined {
@@ -223,7 +236,7 @@ export default function HomePage() {
   function handleDayClick(dateStr: string) {
     const status = getDayStatus(dateStr)
     if (dateStr < today) return
-    if (status === 'available') {
+    if (status === 'available' || status === 'partial') {
       const d = getDateInfo(dateStr)!
       setSelectedDate(d)
     }

@@ -205,9 +205,9 @@ export async function POST(req: NextRequest) {
   }
 
   // 全員の情報が揃っていれば即確定
-  const allCompleted = totalMembers === 1
-    ? repCompleted
-    : repCompleted && companions.length >= totalMembers - 1 && companions.every((c: any) => c.name && c.birth_date)
+  const companionsAllCompleted = companions.length >= totalMembers - 1 &&
+    companions.every((c: any) => c.name && c.birth_date && c.address && c.emergency_contact_name && c.emergency_contact_phone)
+  const allCompleted = totalMembers === 1 ? repCompleted : (repCompleted && companionsAllCompleted)
   if (allCompleted) {
     await db.from('reservations').update({ status: 'confirmed' }).eq('id', reservation.id)
   }
