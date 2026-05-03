@@ -416,13 +416,19 @@ export default function HomePage() {
           </>
         )}
 
-        {/* 予約確認・キャンセル */}
-        <div className="mt-6">
+        {/* 予約確認・変更・キャンセル */}
+        <div className="mt-6 space-y-2">
           <a
             href={lineUserId ? `/cancel?lineUserId=${encodeURIComponent(lineUserId)}` : '/cancel'}
             className="flex items-center justify-center gap-2 w-full text-center py-3 px-4 rounded-xl border border-navy-200 bg-white text-navy-700 font-bold text-sm hover:bg-cream-100 transition-colors"
           >
             <span>📋</span> 予約確認・キャンセル
+          </a>
+          <a
+            href="/edit"
+            className="flex items-center justify-center gap-2 w-full text-center py-3 px-4 rounded-xl border border-gold-300 bg-gold-50 text-navy-700 font-bold text-sm hover:bg-gold-100 transition-colors"
+          >
+            <span>✏️</span> 予約内容の変更（人数・お名前）
           </a>
         </div>
 

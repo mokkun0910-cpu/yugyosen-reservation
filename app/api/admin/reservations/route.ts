@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { generateReservationNumber } from '@/lib/utils'
 import { sendCaptainNotification } from '@/lib/line'
+import { upsertAddressBook } from '@/lib/addressBook'
 
 export async function GET(req: NextRequest) {
   const authError = checkAdminAuth(req)
@@ -11,18 +12,13 @@ export async function GET(req: NextRequest) {
   try {
     const db = createServerClient()
 
-    // Step1: ã¾ããã¹ã¦ã®äºç´ãåå¾ï¼ã¹ãã¼ã¿ã¹ã«é¢ãããä»¶æ°ç¢ºèªç¨ï¼
-    const { data: allReservations, error: allError } = await db
-      .from('reservations')
-      .select('id, status')
-
+    const { data: allReservations } = await db.from('reservations').select('id, status')
     const totalInDB = allReservations?.length ?? 0
     const statusSummary = (allReservations || []).reduce((acc: any, r) => {
       acc[r.status] = (acc[r.status] || 0) + 1
       return acc
     }, {})
 
-    // Step2: ã­ã£ã³ã»ã«ä»¥å¤ã®äºç´ãåå¾
     const { data: reservations, error } = await db
       .from('reservations')
       .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id, created_at')
@@ -43,21 +39,18 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Step3: planæå ±ãåå¥ã«åå¾
     const planIds = Array.from(new Set(reservations.map((r: any) => r.plan_id)))
     const { data: plans } = await db
       .from('plans')
       .select('id, name, departure_time, departure_date_id')
       .in('id', planIds)
 
-    // Step4: departure_dateæå ±ãåå¥ã«åå¾
     const dateIds = Array.from(new Set((plans || []).map((p: any) => p.departure_date_id)))
     const { data: dates } = await db
       .from('departure_dates')
       .select('id, date, departure_notified_at, weather_notified_at, thankyou_notified_at')
       .in('id', dateIds)
 
-    // Step5: ãã¼ã¿ãçµå
     const enriched = reservations.map((r: any) => {
       const plan = (plans || []).find((p: any) => p.id === r.plan_id)
       const date = plan ? (dates || []).find((d: any) => d.id === plan.departure_date_id) : null
@@ -66,7 +59,12 @@ export async function GET(req: NextRequest) {
         plans: plan ? {
           name: plan.name,
           departure_time: plan.departure_time,
-          departure_dates: date ? { date: date.date, departure_notified_at: date.departure_notified_at, weather_notified_at: date.weather_notified_at, thankyou_notified_at: date.thankyou_notified_at } : null,
+          departure_dates: date ? {
+            date: date.date,
+            departure_notified_at: date.departure_notified_at,
+            weather_notified_at: date.weather_notified_at,
+            thankyou_notified_at: date.thankyou_notified_at,
+          } : null,
         } : null,
       }
     })
@@ -89,9 +87,16 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const {
-    planId, representativeName, representativePhone, totalMembers,
-    representativeBirthDate, representativeAddress,
-    representativeEmergencyName, representativeEmergencyPhone,
+    planId,
+    representativeName,
+    representativeFurigana,   // ← 修正: 追加
+    representativePhone,
+    totalMembers,
+    representativeBirthDate,
+    representativeAddress,
+    representativeEmergencyName,
+    representativeEmergencyPhone,
+    companions = [],           // ← 追加: 同行者情報の配列
   } = body
 
   if (!planId || !representativeName || !representativePhone || !totalMembers) {
@@ -129,6 +134,7 @@ export async function POST(req: NextRequest) {
       plan_id: planId,
       reservation_number: reservationNumber,
       representative_name: representativeName,
+      representative_furigana: representativeFurigana || null,  // ← 修正: 保存
       representative_phone: representativePhone,
       line_user_id: null,
       total_members: totalMembers,
@@ -139,37 +145,74 @@ export async function POST(req: NextRequest) {
 
   if (resError) return NextResponse.json({ error: '予約の作成に失敗しました。' }, { status: 500 })
 
+  // 乗船者レコードを作成
   const memberRecords = Array.from({ length: totalMembers }, () => ({
     reservation_id: reservation.id,
     is_completed: false,
   }))
   const { data: members } = await db.from('members').insert(memberRecords).select()
 
-  // 代表者の乗船情報を登録（生年月日が入力されている場合）
-  if (members && members.length > 0 && representativeBirthDate) {
-    await db.from('members').update({
-      name: representativeName,
-      birth_date: representativeBirthDate,
-      address: representativeAddress || '',
-      phone: representativePhone,
-      emergency_contact_name: representativeEmergencyName || '',
-      emergency_contact_phone: representativeEmergencyPhone || '',
-      is_completed: !!(representativeAddress && representativeEmergencyName && representativeEmergencyPhone),
-    }).eq('id', members[0].id)
-  }
-
-  // 1名かつ代表者情報が全て揃っていれば即確定
-  const fullyCompleted =
-    totalMembers === 1 &&
+  // 代表者の乗船情報を更新
+  const repCompleted = !!(
     representativeBirthDate &&
     representativeAddress &&
     representativeEmergencyName &&
     representativeEmergencyPhone
-  if (fullyCompleted) {
+  )
+  if (members && members.length > 0 && representativeBirthDate) {
+    await db.from('members').update({
+      name: representativeName,
+      birth_date: representativeBirthDate || null,
+      address: representativeAddress || null,
+      phone: representativePhone,
+      emergency_contact_name: representativeEmergencyName || null,
+      emergency_contact_phone: representativeEmergencyPhone || null,
+      is_completed: repCompleted,
+    }).eq('id', members[0].id)
+  }
+
+  // 同行者の乗船情報を更新
+  if (members && members.length > 1 && companions.length > 0) {
+    for (let i = 0; i < companions.length; i++) {
+      const c = companions[i]
+      const memberIndex = i + 1
+      if (memberIndex >= members.length) break
+      if (!c.name) continue  // 名前がなければスキップ
+
+      const companionCompleted = !!(c.name && c.birth_date && c.address && c.emergency_contact_name && c.emergency_contact_phone)
+      await db.from('members').update({
+        name: c.name,
+        birth_date: c.birth_date || null,
+        address: c.address || null,
+        phone: c.phone || null,
+        emergency_contact_name: c.emergency_contact_name || null,
+        emergency_contact_phone: c.emergency_contact_phone || null,
+        is_completed: companionCompleted,
+      }).eq('id', members[memberIndex].id)
+
+      // 同行者をアドレス帳に登録
+      if (c.phone) {
+        await upsertAddressBook({
+          name: c.name,
+          phone: c.phone,
+          birth_date: c.birth_date || undefined,
+          address: c.address || undefined,
+          emergency_contact_name: c.emergency_contact_name || undefined,
+          emergency_contact_phone: c.emergency_contact_phone || undefined,
+        }).catch(console.error)
+      }
+    }
+  }
+
+  // 全員の情報が揃っていれば即確定
+  const allCompleted = totalMembers === 1
+    ? repCompleted
+    : repCompleted && companions.length >= totalMembers - 1 && companions.every((c: any) => c.name && c.birth_date)
+  if (allCompleted) {
     await db.from('reservations').update({ status: 'confirmed' }).eq('id', reservation.id)
   }
 
-  // 同日の他プランをロック（この日初の予約の場合）
+  // 同日の他プランをロック
   if (currentCount === 0) {
     await db
       .from('plans')
@@ -177,6 +220,17 @@ export async function POST(req: NextRequest) {
       .eq('departure_date_id', plan.departure_date_id)
       .neq('id', planId)
   }
+
+  // 代表者をアドレス帳に登録・更新
+  await upsertAddressBook({
+    name: representativeName,
+    furigana: representativeFurigana || undefined,
+    phone: representativePhone,
+    birth_date: representativeBirthDate || undefined,
+    address: representativeAddress || undefined,
+    emergency_contact_name: representativeEmergencyName || undefined,
+    emergency_contact_phone: representativeEmergencyPhone || undefined,
+  }).catch(console.error)
 
   // 船長へLINE通知
   const captainLineUserId = process.env.CAPTAIN_LINE_USER_ID

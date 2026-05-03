@@ -8,6 +8,7 @@ type MonthStat = {
   departureDays: number
   reservationCount: number
   totalMembers: number
+  totalRevenue: number
 }
 
 type YearStat = {
@@ -15,6 +16,7 @@ type YearStat = {
   departureDays: number
   reservationCount: number
   totalMembers: number
+  totalRevenue: number
   months: MonthStat[]
 }
 
@@ -30,7 +32,6 @@ export default function AdminHistoryPage() {
       .then(r => r.json())
       .then(d => {
         setYears(d.years || [])
-        // 最新年を自動展開
         if (d.years && d.years.length > 0) {
           setOpenYears(new Set([d.years[0].year]))
         }
@@ -41,8 +42,7 @@ export default function AdminHistoryPage() {
   function toggleYear(year: number) {
     setOpenYears(prev => {
       const next = new Set(prev)
-      if (next.has(year)) next.delete(year)
-      else next.add(year)
+      next.has(year) ? next.delete(year) : next.add(year)
       return next
     })
   }
@@ -57,10 +57,7 @@ export default function AdminHistoryPage() {
       const res = await fetch(`/api/admin/export-monthly?${params}`, {
         headers: { 'x-admin-password': pw },
       })
-      if (!res.ok) {
-        alert('エクスポートに失敗しました。')
-        return
-      }
+      if (!res.ok) { alert('エクスポートに失敗しました。'); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -76,11 +73,7 @@ export default function AdminHistoryPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-        読み込み中...
-      </div>
-    )
+    return <div className="flex items-center justify-center h-40 text-gray-400 text-sm">読み込み中...</div>
   }
 
   if (years.length === 0) {
@@ -103,29 +96,29 @@ export default function AdminHistoryPage() {
       {years.map(y => (
         <div key={y.year} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* 年ヘッダー */}
-          <button
-            className="w-full flex items-center justify-between px-4 py-4"
-            onClick={() => toggleYear(y.year)}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-navy-700 font-bold text-base font-serif">{y.year}年</span>
-              <div className="flex gap-2 text-xs text-gray-500">
+          <button className="w-full flex items-center justify-between px-4 py-4"
+            onClick={() => toggleYear(y.year)}>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-navy-700 font-bold text-base font-serif">{y.year}年</span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500">
                 <span>🚢 {y.departureDays}日</span>
                 <span>📋 {y.reservationCount}件</span>
                 <span>👥 {y.totalMembers}名</span>
+                {y.totalRevenue > 0 && (
+                  <span className="text-green-700 font-bold">💴 {y.totalRevenue.toLocaleString()}円</span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={e => { e.stopPropagation(); handleExport(y.year) }}
                 disabled={downloading === String(y.year)}
-                className="text-xs bg-navy-700 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-navy-800 transition-colors disabled:opacity-50"
-              >
+                className="text-xs bg-navy-700 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-navy-800 transition-colors disabled:opacity-50">
                 {downloading === String(y.year) ? '...' : '📥 年間'}
               </button>
-              <span className={`text-gray-400 text-sm transition-transform duration-200 ${openYears.has(y.year) ? 'rotate-180' : ''}`}>
-                ▼
-              </span>
+              <span className={`text-gray-400 text-sm transition-transform duration-200 ${openYears.has(y.year) ? 'rotate-180' : ''}`}>▼</span>
             </div>
           </button>
 
@@ -135,19 +128,23 @@ export default function AdminHistoryPage() {
               {y.months.map(m => (
                 <div key={`${m.year}-${m.month}`}
                   className="flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-b-0 hover:bg-cream-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-navy-700 w-12">{m.month}月</span>
-                    <div className="flex gap-2 text-xs text-gray-500">
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-bold text-navy-700 w-8">{m.month}月</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-gray-500">
                       <span>🚢 {m.departureDays}日</span>
                       <span>📋 {m.reservationCount}件</span>
                       <span>👥 {m.totalMembers}名</span>
+                      {m.totalRevenue > 0 && (
+                        <span className="text-green-700 font-semibold">💴 {m.totalRevenue.toLocaleString()}円</span>
+                      )}
                     </div>
                   </div>
                   <button
                     onClick={() => handleExport(m.year, m.month)}
                     disabled={downloading === `${m.year}-${m.month}`}
-                    className="text-xs border border-navy-300 text-navy-700 px-3 py-1.5 rounded-lg font-medium hover:bg-navy-50 transition-colors disabled:opacity-50"
-                  >
+                    className="text-xs border border-navy-300 text-navy-700 px-3 py-1.5 rounded-lg font-medium hover:bg-navy-50 transition-colors disabled:opacity-50 shrink-0">
                     {downloading === `${m.year}-${m.month}` ? '...' : '📥 月別'}
                   </button>
                 </div>
