@@ -452,7 +452,7 @@ export default function HomePage() {
             href="/edit"
             className="flex items-center justify-center gap-2 w-full text-center py-3 px-4 rounded-xl border border-gold-300 bg-gold-50 text-navy-700 font-bold text-sm hover:bg-gold-100 transition-colors"
           >
-            <span>✏️</span> 電話番号の変更
+            <span>✏️</span> 予約内容の変更
           </a>
         </div>
 

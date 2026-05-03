@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const { data: reservations } = await db
     .from('reservations')
-    .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id')
+    .select('id, reservation_number, representative_name, representative_furigana, representative_phone, total_members, status, plan_id')
     .eq('representative_phone', phone)
     .neq('status', 'cancelled')
     .order('created_at', { ascending: false })
@@ -30,14 +30,26 @@ export async function GET(req: NextRequest) {
   const enriched = await Promise.all(reservations.map(async (r) => {
     const { data: plan } = await db
       .from('plans')
-      .select('id, name, departure_time, departure_dates(date)')
+      .select('id, name, departure_time, capacity, departure_dates(date)')
       .eq('id', r.plan_id)
       .single()
+
+    // 他の予約の合計人数（自分以外）→ 増やせる最大人数を計算
+    const { data: otherRes } = await db
+      .from('reservations')
+      .select('total_members')
+      .eq('plan_id', r.plan_id)
+      .neq('id', r.id)
+      .neq('status', 'cancelled')
+    const othersCount = (otherRes || []).reduce((s: number, x: any) => s + x.total_members, 0)
+    const maxMembers = plan ? Math.max(r.total_members, plan.capacity - othersCount) : r.total_members
+
     return {
       ...r,
       planName: plan?.name || '',
       departureTime: plan?.departure_time?.slice(0, 5) || '',
       date: (plan?.departure_dates as any)?.date || '',
+      maxMembers,
     }
   }))
 
@@ -47,38 +59,74 @@ export async function GET(req: NextRequest) {
   )
 }
 
-// 電話番号を変更する
+// 予約内容を変更する
 export async function PATCH(req: NextRequest) {
   const body = await req.json()
-  const { phone, newPhone } = body
+  const { reservationId, phone, name, furigana, newPhone, totalMembers } = body
 
-  if (!phone || !newPhone) {
+  if (!reservationId || !phone) {
     return NextResponse.json({ error: '必須項目が不足しています。' }, { status: 400 })
   }
 
   const db = createServerClient()
 
-  // 現在の電話番号に紐づく有効な予約を確認
-  const { data: reservations } = await db
+  // 本人確認（現在の電話番号で照合）
+  const { data: reservation } = await db
     .from('reservations')
-    .select('id')
+    .select('id, representative_phone, total_members, plan_id')
+    .eq('id', reservationId)
     .eq('representative_phone', phone)
     .neq('status', 'cancelled')
+    .single()
 
-  if (!reservations || reservations.length === 0) {
+  if (!reservation) {
     return NextResponse.json({ error: '予約が見つかりません。' }, { status: 404 })
   }
 
-  // 該当する全予約の電話番号を更新
-  const { error } = await db
-    .from('reservations')
-    .update({ representative_phone: newPhone })
-    .eq('representative_phone', phone)
-    .neq('status', 'cancelled')
+  // 人数変更の場合は定員チェック
+  if (totalMembers && totalMembers !== reservation.total_members) {
+    const { data: plan } = await db.from('plans').select('capacity').eq('id', reservation.plan_id).single()
+    const { data: otherRes } = await db
+      .from('reservations').select('total_members')
+      .eq('plan_id', reservation.plan_id).neq('id', reservationId).neq('status', 'cancelled')
+    const othersCount = (otherRes || []).reduce((s: number, r: any) => s + r.total_members, 0)
+    if (plan && totalMembers > plan.capacity - othersCount) {
+      return NextResponse.json(
+        { error: `定員オーバーです。変更可能な最大人数は ${plan.capacity - othersCount}名です。` },
+        { status: 400 }
+      )
+    }
 
-  if (error) {
-    return NextResponse.json({ error: '更新に失敗しました。' }, { status: 500 })
+    // 人数増減に合わせてmembersレコードを調整
+    if (totalMembers > reservation.total_members) {
+      const addCount = totalMembers - reservation.total_members
+      await db.from('members').insert(
+        Array.from({ length: addCount }, () => ({ reservation_id: reservationId, is_completed: false }))
+      )
+    } else if (totalMembers < reservation.total_members) {
+      // 未入力の乗船者を末尾から削除
+      const { data: members } = await db
+        .from('members').select('id, is_completed')
+        .eq('reservation_id', reservationId).order('id', { ascending: false })
+      const toDelete = (members || [])
+        .filter((m: any) => !m.is_completed)
+        .slice(0, reservation.total_members - totalMembers)
+        .map((m: any) => m.id)
+      if (toDelete.length > 0) {
+        await db.from('members').delete().in('id', toDelete)
+      }
+    }
   }
+
+  // 予約情報を更新
+  const updatePayload: any = {}
+  if (name) updatePayload.representative_name = name
+  if (furigana !== undefined) updatePayload.representative_furigana = furigana || null
+  if (newPhone) updatePayload.representative_phone = newPhone
+  if (totalMembers) updatePayload.total_members = totalMembers
+
+  const { error } = await db.from('reservations').update(updatePayload).eq('id', reservationId)
+  if (error) return NextResponse.json({ error: '更新に失敗しました。' }, { status: 500 })
 
   return NextResponse.json({ ok: true })
 }
