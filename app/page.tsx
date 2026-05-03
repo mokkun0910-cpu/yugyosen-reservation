@@ -41,7 +41,7 @@ type DepartureDate = {
   reservedCount: number
 }
 
-type DayStatus = 'available' | 'full' | 'noPlan' | 'none'
+type DayStatus = 'available' | 'partial' | 'full' | 'noPlan' | 'none'
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -172,7 +172,13 @@ export default function HomePage() {
     if (!d.plans || d.plans.length === 0) return 'noPlan'
     const totalCapacity = d.plans.reduce((sum: number, p: any) => sum + p.capacity, 0)
     if (d.reservedCount >= totalCapacity) return 'full'
-    return 'available'
+    if (d.reservedCount === 0) return 'available'   // 予約なし → 空きあり
+    return 'partial'                                 // 予約あり・空きあり → 残り人数表示
+  }
+
+  function getDateRemaining(d: DepartureDate): number {
+    const totalCapacity = d.plans.reduce((sum: number, p: any) => sum + p.capacity, 0)
+    return Math.max(0, totalCapacity - d.reservedCount)
   }
 
   function getDateInfo(dateStr: string): DepartureDate | undefined {
@@ -312,7 +318,9 @@ export default function HomePage() {
                     const isToday = dateStr === today
                     const status = getDayStatus(dateStr)
                     const isSelected = selectedDate?.date === dateStr
-                    const isClickable = !isPast && status === 'available'
+                    const isClickable = !isPast && (status === 'available' || status === 'partial')
+                    const dateInfo = getDateInfo(dateStr)
+                    const remaining = dateInfo && status === 'partial' ? getDateRemaining(dateInfo) : 0
 
                     return (
                       <div
@@ -335,13 +343,16 @@ export default function HomePage() {
                           {dayNum}
                         </span>
                         {!isPast && status === 'available' && (
-                          <span className="text-xs text-green-600 font-bold leading-none mt-0.5">◎</span>
+                          <span className="text-xs text-green-600 font-bold leading-none mt-0.5">空き</span>
+                        )}
+                        {!isPast && status === 'partial' && (
+                          <span className="text-xs text-orange-500 font-bold leading-none mt-0.5">残{remaining}</span>
                         )}
                         {!isPast && status === 'full' && (
                           <span className="text-xs text-red-400 font-bold leading-none mt-0.5">×</span>
                         )}
                         {!isPast && status === 'noPlan' && (
-                          <span className="text-xs text-gray-300 leading-none mt-0.5">－</span>
+                          <span className="text-xs text-gray-400 font-bold leading-none mt-0.5">×</span>
                         )}
                         {(isPast || status === 'none') && (
                           <span className="text-xs leading-none mt-0.5 opacity-0">·</span>
@@ -352,15 +363,15 @@ export default function HomePage() {
                 </div>
 
                 {/* 凡例 */}
-                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 justify-center">
+                <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 justify-center flex-wrap">
                   <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <span className="text-green-600 font-bold">◎</span> 予約可
+                    <span className="text-green-600 font-bold">空き</span> 空きあり
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <span className="text-red-400 font-bold">×</span> 満員
+                    <span className="text-orange-500 font-bold">残N</span> 残り人数
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <span className="text-gray-300">－</span> 準備中
+                    <span className="text-red-400 font-bold">×</span> 満員／出航なし
                   </div>
                 </div>
               </div>
@@ -428,7 +439,7 @@ export default function HomePage() {
             href="/edit"
             className="flex items-center justify-center gap-2 w-full text-center py-3 px-4 rounded-xl border border-gold-300 bg-gold-50 text-navy-700 font-bold text-sm hover:bg-gold-100 transition-colors"
           >
-            <span>✏️</span> 予約内容の変更（人数・お名前）
+            <span>✏️</span> 電話番号の変更
           </a>
         </div>
 
