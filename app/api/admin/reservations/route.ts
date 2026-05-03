@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
 
       // 同行者をアドレス帳に登録
       if (c.phone) {
-        await upsertAddressBook({
+        await upsertAddressBook(db, {
           name: c.name,
           phone: c.phone,
           birth_date: c.birth_date || undefined,
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 代表者をアドレス帳に登録・更新
-  await upsertAddressBook({
+  await upsertAddressBook(db, {
     name: representativeName,
     furigana: representativeFurigana || undefined,
     phone: representativePhone,
