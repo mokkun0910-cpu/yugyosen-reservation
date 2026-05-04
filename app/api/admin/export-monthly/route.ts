@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   // プランを取得
   const { data: plans } = await db
     .from('plans')
-    .select('id, name, departure_time, departure_date_id')
+    .select('id, name, departure_time, departure_date_id, price')
     .in('departure_date_id', dateIds)
     .order('departure_time')
 
@@ -107,9 +107,25 @@ export async function GET(req: NextRequest) {
     return `送信済 (${mm}/${dd} ${hh}:${min})`
   }
 
-  const rows: any[] = []
+  // 月ごとにグルーピングして出力
+  const planMap: Record<string, any> = {}
+  for (const p of plans || []) planMap[p.id] = p
+
+  // 月ごとの行グループを作成
+  type MonthGroup = { label: string; rows: any[]; revenue: number }
+  const monthGroups: MonthGroup[] = []
+  let currentMonthKey = ''
+  let currentGroup: MonthGroup | null = null
 
   for (const d of dates) {
+    const monthKey = d.date.slice(0, 7) // "YYYY-MM"
+    if (monthKey !== currentMonthKey) {
+      if (currentGroup) monthGroups.push(currentGroup)
+      const [y, m] = monthKey.split('-')
+      currentGroup = { label: `${Number(y)}年${Number(m)}月`, rows: [], revenue: 0 }
+      currentMonthKey = monthKey
+    }
+
     const datePlans = (plans || []).filter(p => p.departure_date_id === d.id)
     if (datePlans.length === 0) continue
 
@@ -126,49 +142,62 @@ export async function GET(req: NextRequest) {
           '🙏お礼通知': notifyLabel(d.thankyou_notified_at, hasLine),
         }
         const totalMembers: number = r.total_members || members.length || 1
+        const unitPrice: number = plan.price || 0
+        const resRevenue: number = totalMembers * unitPrice
 
-        if (members.length > 0) {
-          for (let i = 0; i < members.length; i++) {
-            const m = members[i]
-            rows.push({
-              '出船日': d.date,
-              '釣り物': plan.name || '',
-              '出船時刻': plan.departure_time?.slice(0, 5) || '',
-              '予約番号': r.reservation_number,
-              '代表者氏名': r.representative_name,
-              '代表者電話': r.representative_phone,
-              '乗船者No': i + 1,
-              '乗船者氏名': m.is_completed ? (m.name || '') : '（未入力）',
-              '生年月日': m.is_completed ? (m.birth_date || '') : '',
-              '住所': m.is_completed ? (m.address || '') : '',
-              '電話番号': m.is_completed ? (m.phone || '') : '',
-              '緊急連絡先氏名': m.is_completed ? (m.emergency_contact_name || '') : '',
-              '緊急連絡先電話': m.is_completed ? (m.emergency_contact_phone || '') : '',
-              '入力状況': m.is_completed ? '入力済み' : '未入力',
-              ...notifyCols,
-            })
-          }
-        } else {
-          for (let i = 0; i < totalMembers; i++) {
-            rows.push({
-              '出船日': d.date, '釣り物': plan.name || '', '出船時刻': plan.departure_time?.slice(0, 5) || '',
-              '予約番号': r.reservation_number, '代表者氏名': r.representative_name, '代表者電話': r.representative_phone,
-              '乗船者No': i + 1, '乗船者氏名': '（未入力）', '生年月日': '', '住所': '',
-              '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '', '入力状況': '未入力', ...notifyCols,
-            })
-          }
+        if (currentGroup) currentGroup.revenue += resRevenue
+
+        const memberList = members.length > 0 ? members : Array.from({ length: totalMembers }, () => null)
+
+        for (let i = 0; i < memberList.length; i++) {
+          const m = memberList[i]
+          currentGroup!.rows.push({
+            '出船日': d.date,
+            '釣り物': plan.name || '',
+            '出船時刻': plan.departure_time?.slice(0, 5) || '',
+            '予約番号': r.reservation_number,
+            '代表者氏名': r.representative_name,
+            '代表者電話': r.representative_phone,
+            '乗船者No': i + 1,
+            '乗船者氏名': m ? (m.is_completed ? (m.name || '') : '（未入力）') : '（未入力）',
+            '生年月日': m?.is_completed ? (m.birth_date || '') : '',
+            '住所': m?.is_completed ? (m.address || '') : '',
+            '電話番号': m?.is_completed ? (m.phone || '') : '',
+            '緊急連絡先氏名': m?.is_completed ? (m.emergency_contact_name || '') : '',
+            '緊急連絡先電話': m?.is_completed ? (m.emergency_contact_phone || '') : '',
+            '入力状況': m?.is_completed ? '入力済み' : '未入力',
+            '料金': i === 0 && resRevenue > 0 ? resRevenue : '',
+            ...notifyCols,
+          })
         }
       }
     }
   }
+  if (currentGroup) monthGroups.push(currentGroup)
+
+  // 月合計行を挟みながらフラット化
+  const rows: any[] = []
+  const emptyRow = {
+    '出船日': '', '釣り物': '', '出船時刻': '', '予約番号': '',
+    '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
+    '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '',
+    '入力状況': '', '料金': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
+  }
+
+  for (const g of monthGroups) {
+    rows.push(...g.rows)
+    if (g.rows.length > 0) {
+      rows.push({
+        ...emptyRow,
+        '代表者氏名': `▶ ${g.label} 合計`,
+        '料金': g.revenue > 0 ? g.revenue : '',
+      })
+      rows.push({ ...emptyRow })
+    }
+  }
 
   if (rows.length === 0) {
-    rows.push({
-      '出船日': '', '釣り物': '', '出船時刻': '', '予約番号': '',
-      '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
-      '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '',
-      '入力状況': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
-    })
+    rows.push({ ...emptyRow })
   }
 
   const wb = XLSX.utils.book_new()
@@ -176,7 +205,7 @@ export async function GET(req: NextRequest) {
   ws['!cols'] = [
     { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 16 },
     { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 14 }, { wch: 16 },
-    { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+    { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
   ]
   XLSX.utils.book_append_sheet(wb, ws, '乗船名簿')
 
