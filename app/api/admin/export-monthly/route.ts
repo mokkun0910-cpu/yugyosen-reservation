@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
   }
   if (currentGroup) monthGroups.push(currentGroup)
 
-  // 月合計行を挟みながらフラット化
+  // 月合計・年間合計行を挟みながらフラット化
   const rows: any[] = []
   const emptyRow = {
     '出船日': '', '釣り物': '', '出船時刻': '', '予約番号': '',
@@ -184,16 +184,38 @@ export async function GET(req: NextRequest) {
     '入力状況': '', '料金': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
   }
 
+  let yearlyRevenue = 0
+  let yearlyMembers = 0
+  let yearlyReservations = 0
+
   for (const g of monthGroups) {
     rows.push(...g.rows)
     if (g.rows.length > 0) {
+      const monthMembers = g.rows.filter((r: any) => r['乗船者No'] !== '').length
+      const monthReservations = new Set(g.rows.map((r: any) => r['予約番号']).filter(Boolean)).size
+      yearlyRevenue += g.revenue
+      yearlyMembers += monthMembers
+      yearlyReservations += monthReservations
+
+      // 月合計行
       rows.push({
         ...emptyRow,
-        '代表者氏名': `▶ ${g.label} 合計`,
+        '出船日': `◆ ${g.label} 月計`,
+        '代表者氏名': `予約${monthReservations}件 / ${monthMembers}名`,
         '料金': g.revenue > 0 ? g.revenue : '',
       })
       rows.push({ ...emptyRow })
     }
+  }
+
+  // 年間合計行（複数月ある場合のみ）
+  if (monthGroups.length > 1 && yearlyRevenue > 0) {
+    rows.push({
+      ...emptyRow,
+      '出船日': `★ ${year}年 年間合計`,
+      '代表者氏名': `予約${yearlyReservations}件 / ${yearlyMembers}名`,
+      '料金': yearlyRevenue,
+    })
   }
 
   if (rows.length === 0) {
