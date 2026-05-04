@@ -190,10 +190,12 @@ export async function POST(req: NextRequest) {
 
     if (!reservation) return NextResponse.json({ error: '予約が見つかりません。' }, { status: 404 })
 
+    // memberId が当該 reservationId に属することを確認（他者の乗船者削除を防止）
     const { data: member } = await db
       .from('members')
       .select('name')
       .eq('id', memberId)
+      .eq('reservation_id', reservationId)
       .single()
 
     if (!member) return NextResponse.json({ error: '乗船者情報が見つかりません。' }, { status: 404 })

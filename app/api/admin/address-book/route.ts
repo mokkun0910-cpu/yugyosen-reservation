@@ -8,7 +8,9 @@ export async function GET(req: NextRequest) {
   if (authError) return authError
 
   const { searchParams } = new URL(req.url)
-  const q = searchParams.get('q') || ''
+  const rawQ = searchParams.get('q') || ''
+  // PostgRESTフィルタ構文を壊す文字を除去
+  const q = rawQ.replace(/[%,()\\]/g, '').slice(0, 100)
 
   const db = createServerClient()
 

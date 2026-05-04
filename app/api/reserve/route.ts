@@ -14,8 +14,17 @@ export async function POST(req: NextRequest) {
   if (!planId || !representativeName || !representativePhone || !totalMembers) {
     return NextResponse.json({ error: '必須項目が不足しています。' }, { status: 400 })
   }
-  if (typeof totalMembers !== 'number' || totalMembers < 1 || totalMembers > 20) {
-    return NextResponse.json({ error: '人数は1〜20名の範囲で入力してください。' }, { status: 400 })
+  if (typeof totalMembers !== 'number' || !Number.isInteger(totalMembers) || totalMembers < 1 || totalMembers > 20) {
+    return NextResponse.json({ error: '人数は1〜20名の整数で入力してください。' }, { status: 400 })
+  }
+  if (typeof representativeName !== 'string' || representativeName.trim().length === 0 || representativeName.length > 100) {
+    return NextResponse.json({ error: '氏名が不正です。' }, { status: 400 })
+  }
+  if (typeof representativePhone !== 'string' || !/^[\d０-９\-－― ]+$/.test(representativePhone) || representativePhone.length > 20) {
+    return NextResponse.json({ error: '電話番号が不正です。' }, { status: 400 })
+  }
+  if (typeof planId !== 'string' || planId.length > 100) {
+    return NextResponse.json({ error: 'プランIDが不正です。' }, { status: 400 })
   }
 
   const db = createServerClient()

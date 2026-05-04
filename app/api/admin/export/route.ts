@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { checkAdminAuth } from '@/lib/adminAuth'
 import * as XLSX from 'xlsx'
 
 export async function GET(req: NextRequest) {
+  const authError = checkAdminAuth(req)
+  if (authError) return authError
+
   const { searchParams } = new URL(req.url)
   const dateId = searchParams.get('dateId')
 

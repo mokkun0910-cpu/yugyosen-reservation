@@ -1,3 +1,6 @@
+// 遊漁船名（Vercel環境変数 BOAT_NAME で変更可能）
+export const BOAT_NAME = process.env.BOAT_NAME || '高喜丸'
+
 // 予約番号生成（例：YU-20240501-A3F2）
 export function generateReservationNumber(): string {
   const date = new Date()

@@ -1,28 +1,25 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { formatDateJa } from '@/lib/utils'
+
+function getAdminHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'x-admin-password': sessionStorage.getItem('admin_pw') || '',
+  }
+}
 
 export default function AdminCancellationsPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
 
   async function fetchRequests() {
-    const { data } = await supabase
-      .from('cancellation_requests')
-      .select('*, reservations(*, plans(name, departure_dates(date)))')
-      .order('created_at', { ascending: false })
-    setRequests(data || [])
+    const res = await fetch('/api/admin/cancellations', { headers: getAdminHeaders() })
+    const data = await res.json()
+    setRequests(data.requests || [])
   }
 
   useEffect(() => { fetchRequests() }, [])
-
-  function getAdminHeaders(): Record<string, string> {
-    return {
-      'Content-Type': 'application/json',
-      'x-admin-password': sessionStorage.getItem('admin_pw') || '',
-    }
-  }
 
   async function handleAction(id: string, action: 'approve' | 'reject') {
     const label = action === 'approve' ? '承認' : '却下'

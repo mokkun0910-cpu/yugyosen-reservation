@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { formatDateJa } from '@/lib/utils'
+import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
 export async function POST(req: NextRequest) {
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 釣果のお写真などインスタグラムでも紹介しておりますので、よろしければフォローください📸
 
 またお会いできる日を楽しみにしています！
-遊漁船 王丸`
+${BOAT_NAME}`
 
     const lineUserCount = (reservations as any[]).filter((r: any) => r.line_user_id).length
     let notified = 0

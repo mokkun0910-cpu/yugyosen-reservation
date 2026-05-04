@@ -128,8 +128,10 @@ export async function PATCH(req: NextRequest) {
   if (newPhone) updatePayload.representative_phone = newPhone
   if (totalMembers) updatePayload.total_members = totalMembers
 
-  const { error } = await db.from('reservations').update(updatePayload).eq('id', reservationId)
-  if (error) return NextResponse.json({ error: '更新に失敗しました。' }, { status: 500 })
+  if (Object.keys(updatePayload).length > 0) {
+    const { error } = await db.from('reservations').update(updatePayload).eq('id', reservationId)
+    if (error) return NextResponse.json({ error: '更新に失敗しました。' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { formatDateJa } from '@/lib/utils'
+import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
 export async function POST(req: NextRequest) {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。
 
 当日皆様のご乗船をお待ちしております。
-🎣 遊漁船 王丸`
+🎣 ${BOAT_NAME}`
 
       try {
         const res = await fetch('https://api.line.me/v2/bot/message/push', {

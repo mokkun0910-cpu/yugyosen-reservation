@@ -1,8 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { formatDateJa } from '@/lib/utils'
+
+function getAdminHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'x-admin-password': sessionStorage.getItem('admin_pw') || '',
+  }
+}
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -12,29 +18,34 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function fetchStats() {
-      const today = new Date().toISOString().slice(0, 10)
-      const { data: upcoming } = await supabase
-        .from('departure_dates')
-        .select('id')
-        .eq('is_open', true)
-        .gte('date', today)
-      const { data: cancellations } = await supabase
-        .from('cancellation_requests')
-        .select('id')
-        .eq('status', 'pending')
-      const { data: recentRes } = await supabase
-        .from('reservations')
-        .select('*, plans(name, departure_dates(date))')
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false })
-        .limit(5)
+      try {
+        const [resData, cancelData] = await Promise.all([
+          fetch('/api/admin/reservations', { headers: getAdminHeaders() }).then(r => r.json()),
+          fetch('/api/admin/cancellations', { headers: getAdminHeaders() }).then(r => r.json()).catch(() => ({ requests: [] })),
+        ])
 
-      setStats({
-        pendingCancellations: (cancellations || []).length,
-        upcomingDates: (upcoming || []).length,
-      })
-      setRecent(recentRes || [])
-      setLoading(false)
+        const reservations: any[] = resData.reservations || []
+        const allCancels: any[] = cancelData.requests || []
+        const today = new Date().toISOString().slice(0, 10)
+
+        const upcomingDateSet = new Set<string>()
+        reservations.forEach((r: any) => {
+          const date = r.plans?.departure_dates?.date
+          if (date && date >= today) upcomingDateSet.add(date)
+        })
+
+        const pendingCount = allCancels.filter((c: any) => c.status === 'pending').length
+
+        setStats({
+          pendingCancellations: pendingCount,
+          upcomingDates: upcomingDateSet.size,
+        })
+        setRecent(reservations.slice(0, 5))
+      } catch {
+        // fetch失敗時はサイレントに処理
+      } finally {
+        setLoading(false)
+      }
     }
     fetchStats()
   }, [])
@@ -50,7 +61,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
           <div className="text-3xl font-bold text-navy-700">{loading ? '…' : stats.upcomingDates}</div>
-          <div className="text-xs text-gray-500 mt-1">受付中の出船日</div>
+          <div className="text-xs text-gray-500 mt-1">直近の出船日</div>
         </div>
         <div className={`bg-white rounded-xl shadow-sm border text-center p-4 ${
           stats.pendingCancellations > 0 ? 'border-red-300 bg-red-50' : 'border-gray-100'

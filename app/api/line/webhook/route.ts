@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServerClient } from '@/lib/supabase'
+import { BOAT_NAME } from '@/lib/utils'
 
 function verifySignature(body: string, signature: string): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET || ''
@@ -40,8 +41,8 @@ export async function POST(req: NextRequest) {
       const isReturning = !!existing
 
       const text = isReturning
-        ? `おかえりなさい！🎣\n\nまたのご利用をお待ちしておりました。\nご予約・キャンセルはリッチメニューからどうぞ。\n\n遊漁船 王丸`
-        : `遊漁船 王丸へのご登録ありがとうございます！🎣\n\nオンライン予約・キャンセルのご案内はリッチメニューからどうぞ。\n\n出航情報などもLINEにてお届けします。よろしくお願いします！\n\n遊漁船 王丸`
+        ? `おかえりなさい！🎣\n\nまたのご利用をお待ちしておりました。\nご予約・キャンセルはリッチメニューからどうぞ。\n\n${BOAT_NAME}`
+        : `${BOAT_NAME}へのご登録ありがとうございます！🎣\n\nオンライン予約・キャンセルのご案内はリッチメニューからどうぞ。\n\n出航情報などもLINEにてお届けします。よろしくお願いします！\n\n${BOAT_NAME}`
 
       await fetch('https://api.line.me/v2/bot/message/reply', {
         method: 'POST',
