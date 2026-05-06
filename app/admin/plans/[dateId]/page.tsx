@@ -3,9 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa, formatPrice } from '@/lib/utils'
-
 const emptyPlan = { name: '', target_fish: '', departure_time: '', price: '', capacity: '10' }
-
 export default function AdminPlansPage() {
   const router = useRouter()
   const { dateId } = useParams<{ dateId: string }>()
@@ -15,34 +13,27 @@ export default function AdminPlansPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-
   async function fetchData() {
     const { data: d } = await supabase.from('departure_dates').select('date').eq('id', dateId).single()
     if (d) setDate(d.date)
     const { data: p } = await supabase.from('plans').select('*').eq('departure_date_id', dateId).order('departure_time')
     setPlans(p || [])
   }
-
   useEffect(() => { fetchData() }, [dateId])
-
   function getAdminHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'x-admin-password': sessionStorage.getItem('admin_pw') || '',
     }
   }
-
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setSuccess('')
-
     if (plans.length >= 5) { setError('1日に設定できるプランは最大5つです。'); return }
     if (!form.name || !form.target_fish || !form.departure_time || !form.price) {
       setError('すべての項目を入力してください。')
       return
     }
-
     setSaving(true)
     const res = await fetch('/api/admin/plans', {
       method: 'POST',
@@ -62,14 +53,12 @@ export default function AdminPlansPage() {
       setSaving(false)
       return
     }
-
     setForm({ ...emptyPlan })
     setSuccess('プランを追加しました！')
     await fetchData()
     setSaving(false)
     setTimeout(() => setSuccess(''), 3000)
   }
-
   async function handleDelete(id: string) {
     if (!confirm('このプランを削除しますか？')) return
     const res = await fetch('/api/admin/plans', {
@@ -84,13 +73,11 @@ export default function AdminPlansPage() {
     }
     await fetchData()
   }
-
   return (
     <div className="p-4">
       <button onClick={() => router.back()} className="text-navy-600 text-sm mb-3 block hover:text-gold-500 transition-colors">
         ← 出船日一覧に戻る
       </button>
-
       <div className="flex items-center gap-2 mb-1">
         <div className="w-1 h-5 bg-gold-500 rounded-full" />
         <h2 className="text-lg font-bold text-navy-700 font-serif">プラン設定</h2>
@@ -98,7 +85,6 @@ export default function AdminPlansPage() {
       {date && (
         <p className="text-sm text-gray-500 mb-4 ml-3">{formatDateJa(date)}</p>
       )}
-
       {/* 登録済みプラン一覧 */}
       <div className="space-y-3 mb-6">
         {plans.length === 0 && (
@@ -127,7 +113,6 @@ export default function AdminPlansPage() {
           </div>
         ))}
       </div>
-
       {/* プラン追加フォーム */}
       {plans.length < 5 ? (
         <form onSubmit={handleAdd} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -135,7 +120,6 @@ export default function AdminPlansPage() {
             <span className="bg-navy-700 text-white text-xs px-2 py-0.5 rounded font-bold">残り{5 - plans.length}枠</span>
             <p className="font-bold text-sm text-navy-700">新しいプランを追加</p>
           </div>
-
           <div className="space-y-3">
             <div>
               <label className="label">プラン名 <span className="text-red-500">*</span></label>
@@ -170,7 +154,6 @@ export default function AdminPlansPage() {
               </select>
               <p className="text-xs text-gray-400 mt-1">高喜丸の最大定員は10名です</p>
             </div>
-
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
                 ⚠️ {error}
@@ -181,7 +164,6 @@ export default function AdminPlansPage() {
                 ✅ {success}
               </div>
             )}
-
             <button type="submit" className="btn-primary" disabled={saving}>
               {saving ? '保存中...' : '＋ プランを追加する'}
             </button>

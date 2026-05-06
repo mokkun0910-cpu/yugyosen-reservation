@@ -4,7 +4,7 @@ import { checkAdminAuth } from '@/lib/adminAuth'
 
 // 出船日を追加
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { date } = await req.json()
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
 // 公開/非公開を切り替え
 export async function PATCH(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { id, is_open } = await req.json()
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest) {
 
 // 出船日を削除
 export async function DELETE(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { id } = await req.json()

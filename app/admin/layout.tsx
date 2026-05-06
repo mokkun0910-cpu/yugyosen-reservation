@@ -5,32 +5,61 @@ import { useRouter, usePathname } from 'next/navigation'
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [authed, setAuthed] = useState(false)
+  // null = 確認中, false = 未認証, true = 認証済み
+  const [authed, setAuthed] = useState<boolean | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
+  // マウント時にサーバーサイドで Cookie の有効性を確認
   useEffect(() => {
-    const ok = sessionStorage.getItem('admin_authed')
-    if (ok === '1') setAuthed(true)
+    fetch('/api/admin/auth', { method: 'GET' })
+      .then((r) => setAuthed(r.ok))
+      .catch(() => setAuthed(false))
   }, [])
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    fetch('/api/admin/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    }).then((r) => r.json()).then((d) => {
+    setLoading(true)
+    setError('')
+    try {
+      const r = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+        // Cookie は same-origin で自動送受信されるため credentials 指定不要
+      })
+      const d = await r.json()
       if (d.ok) {
-        sessionStorage.setItem('admin_authed', '1')
-        sessionStorage.setItem('admin_pw', password)
+        setPassword('')
         setAuthed(true)
+      } else if (r.status === 429) {
+        setError('試行回数が多すぎます。しばらく待ってから再試行してください。')
       } else {
         setError('パスワードが正しくありません。')
       }
-    })
+    } catch {
+      setError('通信エラーが発生しました。')
+    } finally {
+      setLoading(false)
+    }
   }
 
+  async function handleLogout() {
+    await fetch('/api/admin/auth', { method: 'DELETE' }).catch(() => {})
+    setAuthed(false)
+  }
+
+  // 認証確認中
+  if (authed === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-navy-700">
+        <p className="text-white text-sm">読み込み中…</p>
+      </div>
+    )
+  }
+
+  // 未認証 → ログインフォーム
   if (!authed) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-navy-700">
@@ -43,11 +72,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <form onSubmit={handleLogin} className="p-6 space-y-4">
             <div>
               <label className="label">管理者パスワード</label>
-              <input className="input-field" type="password" value={password}
-                onChange={(e) => setPassword(e.target.value)} placeholder="パスワードを入力" />
+              <input
+                className="input-field"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="パスワードを入力"
+                autoComplete="current-password"
+              />
             </div>
             {error && <p className="error-text">⚠️ {error}</p>}
-            <button type="submit" className="btn-primary">ログイン</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'ログイン中…' : 'ログイン'}
+            </button>
           </form>
         </div>
       </div>
@@ -70,11 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="font-bold font-serif text-sm tracking-wide">⚓ 高喜丸 管理画面</span>
         </div>
         <button
-          onClick={() => {
-            sessionStorage.removeItem('admin_authed')
-            sessionStorage.removeItem('admin_pw')
-            setAuthed(false)
-          }}
+          onClick={handleLogout}
           className="text-navy-300 text-xs border border-navy-500 px-3 py-1 rounded-lg hover:bg-navy-600 transition-colors">
           ログアウト
         </button>

@@ -1,13 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDateJa } from '@/lib/utils'
-
 const emptyForm = {
   name: '', furigana: '', phone: '', birth_date: '', address: '',
   emergency_contact_name: '', emergency_contact_phone: '', memo: '',
 }
 type EditForm = typeof emptyForm
-
 const KANA_GROUPS = [
   { label: 'あ行', chars: ['あ','い','う','え','お'] },
   { label: 'か行', chars: ['か','き','く','け','こ','が','ぎ','ぐ','げ','ご'] },
@@ -20,7 +18,6 @@ const KANA_GROUPS = [
   { label: 'ら行', chars: ['ら','り','る','れ','ろ'] },
   { label: 'わ行', chars: ['わ','を','ん'] },
 ]
-
 function getKanaGroup(furigana: string | null): string {
   if (!furigana) return 'ふりがな未登録'
   const first = furigana.trim()[0]
@@ -29,7 +26,6 @@ function getKanaGroup(furigana: string | null): string {
   }
   return 'その他'
 }
-
 // ---- PersonCard：editForm を自身の state で管理 ----
 type PersonCardProps = {
   p: any
@@ -42,16 +38,13 @@ type PersonCardProps = {
   onSaveEdit: (form: EditForm) => void
   onDelete: () => void
 }
-
 function PersonCard({
   p, isExpanded, isEditing, saving,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onDelete,
 }: PersonCardProps) {
   const history = p.history || []
-
   // 自身の state で管理 → 親の再レンダリングに影響されない
   const [form, setForm] = useState<EditForm>({ ...emptyForm })
-
   // 編集モードに入ったとき初期値をセット
   useEffect(() => {
     if (isEditing) {
@@ -67,7 +60,6 @@ function PersonCard({
       })
     }
   }, [isEditing])
-
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div className="p-3">
@@ -200,7 +192,6 @@ function PersonCard({
     </div>
   )
 }
-
 // ---- メインページ ----
 export default function AddressBookPage() {
   const [people, setPeople] = useState<any[]>([])
@@ -213,14 +204,11 @@ export default function AddressBookPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
-
   function getAdminHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'x-admin-password': sessionStorage.getItem('admin_pw') || '',
     }
   }
-
   async function load(q = '') {
     setLoading(true)
     const params = q ? `?q=${encodeURIComponent(q)}` : ''
@@ -237,15 +225,12 @@ export default function AddressBookPage() {
     }
     setLoading(false)
   }
-
   useEffect(() => { load() }, [])
-
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     await load(searchQ)
     setOpenGroups(new Set(KANA_GROUPS.map(g => g.label).concat(['ふりがな未登録', 'その他'])))
   }
-
   function toggleGroup(label: string) {
     setOpenGroups(prev => {
       const next = new Set(Array.from(prev))
@@ -253,7 +238,6 @@ export default function AddressBookPage() {
       return next
     })
   }
-
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -271,7 +255,6 @@ export default function AddressBookPage() {
     setShowAddForm(false)
     await load(searchQ)
   }
-
   async function handleSaveEdit(id: string, form: EditForm) {
     setSaving(true)
     const res = await fetch('/api/admin/address-book', {
@@ -284,7 +267,6 @@ export default function AddressBookPage() {
     setEditingId(null)
     await load(searchQ)
   }
-
   async function handleDelete(id: string, name: string) {
     if (!confirm(`「${name}」をアドレス帳から削除しますか？`)) return
     const res = await fetch('/api/admin/address-book', {
@@ -295,14 +277,12 @@ export default function AddressBookPage() {
     if (!res.ok) { alert('削除に失敗しました。'); return }
     await load(searchQ)
   }
-
   const groupOrder = KANA_GROUPS.map(g => g.label).concat(['その他', 'ふりがな未登録'])
   const grouped = groupOrder.reduce((acc, label) => {
     const items = people.filter(p => getKanaGroup(p.furigana) === label)
     if (items.length > 0) acc.push({ label, items })
     return acc
   }, [] as { label: string; items: any[] }[])
-
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mt-3 mb-4">
@@ -324,7 +304,6 @@ export default function AddressBookPage() {
           </button>
         </div>
       </div>
-
       <form onSubmit={handleSearch} className="flex gap-2 mb-4">
         <input className="input-field flex-1" placeholder="氏名・ふりがな・電話番号で検索"
           value={searchQ} onChange={e => setSearchQ(e.target.value)} />
@@ -339,7 +318,6 @@ export default function AddressBookPage() {
           </button>
         )}
       </form>
-
       {showAddForm && (
         <div className="bg-white rounded-xl shadow-sm border border-navy-200 p-4 mb-4">
           <p className="text-sm font-bold text-navy-700 mb-3">新規登録</p>
@@ -400,15 +378,12 @@ export default function AddressBookPage() {
           </form>
         </div>
       )}
-
       {loading && <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>}
-
       {!loading && people.length === 0 && (
         <div className="bg-white rounded-xl border border-dashed border-gray-200 text-center py-10 text-gray-400 text-sm">
           登録されていません
         </div>
       )}
-
       {!loading && (
         <div className="space-y-2">
           {grouped.map(({ label, items }) => (
@@ -423,7 +398,6 @@ export default function AddressBookPage() {
                 </div>
                 <span className="text-navy-200 text-sm">{openGroups.has(label) ? '▲' : '▼'}</span>
               </button>
-
               {openGroups.has(label) && (
                 <div className="space-y-2 pl-1">
                   {items.map(p => (

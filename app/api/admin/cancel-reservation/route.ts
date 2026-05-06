@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminLog'
 
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { reservationId } = await req.json()
@@ -44,5 +45,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  logAdminAction(req, 'admin_cancel', `予約ID: ${reservationId}`).catch(() => {})
   return NextResponse.json({ ok: true })
 }

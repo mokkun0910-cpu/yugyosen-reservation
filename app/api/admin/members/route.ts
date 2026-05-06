@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
 export async function GET(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   try {

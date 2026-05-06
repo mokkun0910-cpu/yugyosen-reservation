@@ -4,19 +4,26 @@ import { checkAdminAuth } from '@/lib/adminAuth'
 
 // アドレス帳一覧取得
 export async function GET(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { searchParams } = new URL(req.url)
   const rawQ = searchParams.get('q') || ''
   // PostgRESTフィルタ構文を壊す文字を除去
   const q = rawQ.replace(/[%,()\\]/g, '').slice(0, 100)
+  // ページネーション（省略時は全件取得・後方互換）
+  const pageParam = searchParams.get('page')
+  const limitParam = searchParams.get('limit')
+  const usePagination = !!(pageParam || limitParam)
+  const page = Math.max(1, parseInt(pageParam || '1'))
+  const limit = Math.min(200, Math.max(1, parseInt(limitParam || '100')))
+  const offset = (page - 1) * limit
 
   const db = createServerClient()
 
   let query = db
     .from('address_book')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('furigana', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true })
 
@@ -24,7 +31,11 @@ export async function GET(req: NextRequest) {
     query = query.or(`name.ilike.%${q}%,furigana.ilike.%${q}%,phone.ilike.%${q}%`)
   }
 
-  const { data, error } = await query
+  if (usePagination) {
+    query = query.range(offset, offset + limit - 1)
+  }
+
+  const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // 各人の乗船履歴を取得（電話番号で照合）
@@ -81,12 +92,20 @@ export async function GET(req: NextRequest) {
     })
   )
 
-  return NextResponse.json({ data: enriched }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json(
+    {
+      data: enriched,
+      ...(usePagination && {
+        pagination: { page, limit, total: count ?? 0, totalPages: Math.ceil((count ?? 0) / limit) }
+      }),
+    },
+    { headers: { 'Cache-Control': 'no-store' } }
+  )
 }
 
 // 手動追加
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const body = await req.json()
@@ -119,7 +138,7 @@ export async function POST(req: NextRequest) {
 
 // メモ・情報の更新
 export async function PATCH(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const body = await req.json()
@@ -145,7 +164,7 @@ export async function PATCH(req: NextRequest) {
 
 // 削除
 export async function DELETE(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { id } = await req.json()

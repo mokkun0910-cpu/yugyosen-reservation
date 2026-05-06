@@ -18,10 +18,9 @@ export default function AdminReservationsPage() {
     const label = `${r.representative_name}（${r.reservation_number}）`
     if (!confirm(`「${label}」の予約をキャンセルしますか？\n乗船名簿からも削除されます。`)) return
     setCancelling(r.id)
-    const pw = sessionStorage.getItem('admin_pw') || ''
     const res = await fetch('/api/admin/cancel-reservation', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': pw },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reservationId: r.id }),
     })
     const data = await res.json()
@@ -35,9 +34,8 @@ export default function AdminReservationsPage() {
 
   async function load() {
     setLoading(true)
-    const pw = sessionStorage.getItem('admin_pw') || ''
     const res = await fetch('/api/admin/reservations', {
-      headers: { 'x-admin-password': pw },
+      headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     })
     const json = await res.json()

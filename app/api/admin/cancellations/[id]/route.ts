@@ -3,12 +3,13 @@ import { createServerClient } from '@/lib/supabase'
 import { sendCancelResult } from '@/lib/line'
 import { formatDateJa } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminLog'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { id } = params
@@ -62,6 +63,10 @@ export async function POST(
       await sendCancelResult(reservation.line_user_id, false, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '').catch(console.error)
     }
   }
+
+  const reservation = (cancelReq.reservations as any)
+  const logDetail = `申請ID: ${id} 予約番号: ${reservation?.reservation_number || ''}`
+  logAdminAction(req, approved ? 'approve_cancel' : 'reject_cancel', logDetail).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }

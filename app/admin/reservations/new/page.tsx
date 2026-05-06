@@ -95,10 +95,9 @@ export default function AdminNewReservationPage() {
       return
     }
     setSaving(true)
-    const pw = sessionStorage.getItem('admin_pw') || ''
     const res = await fetch('/api/admin/reservations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-password': pw },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         planId: selectedPlanId,
         representativeName: form.name,

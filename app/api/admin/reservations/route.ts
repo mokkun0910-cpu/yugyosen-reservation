@@ -6,10 +6,19 @@ import { sendCaptainNotification } from '@/lib/line'
 import { upsertAddressBook } from '@/lib/addressBook'
 
 export async function GET(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   try {
+    const { searchParams } = new URL(req.url)
+    // ページネーション（省略時は全件取得・後方互換）
+    const pageParam = searchParams.get('page')
+    const limitParam = searchParams.get('limit')
+    const usePagination = !!(pageParam || limitParam)
+    const page = Math.max(1, parseInt(pageParam || '1'))
+    const limit = Math.min(500, Math.max(1, parseInt(limitParam || '200')))
+    const offset = (page - 1) * limit
+
     const db = createServerClient()
 
     const { data: allReservations } = await db.from('reservations').select('id, status')
@@ -19,11 +28,17 @@ export async function GET(req: NextRequest) {
       return acc
     }, {})
 
-    const { data: reservations, error } = await db
+    let query = db
       .from('reservations')
-      .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id, created_at')
+      .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id, created_at', { count: 'exact' })
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
+
+    if (usePagination) {
+      query = query.range(offset, offset + limit - 1)
+    }
+
+    const { data: reservations, error, count } = await query
 
     if (error) {
       return NextResponse.json(
@@ -70,7 +85,15 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(
-      { reservations: enriched, totalInDB, statusSummary },
+      {
+        reservations: enriched,
+        totalInDB,
+        statusSummary,
+        // ページネーション情報（paginationパラメータ指定時のみ付加）
+        ...(usePagination && {
+          pagination: { page, limit, total: count ?? 0, totalPages: Math.ceil((count ?? 0) / limit) }
+        }),
+      },
       { headers: { 'Cache-Control': 'no-store' } }
     )
   } catch (e: any) {
@@ -82,7 +105,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const body = await req.json()

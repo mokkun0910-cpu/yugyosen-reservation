@@ -3,16 +3,12 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDateJa, formatPrice } from '@/lib/utils'
-
 const emptyPlanForm = { name: '', target_fish: '', departure_time: '', price: '', capacity: '10' }
-
 export default function AdminDatesPage() {
   const router = useRouter()
-
   const [dates, setDates] = useState<any[]>([])
   const [reservations, setReservations] = useState<any[]>([])
   const [members, setMembers] = useState<Record<string, any[]>>({})
-
   const [openDateIds, setOpenDateIds] = useState<Set<string>>(new Set())
   const [expandedRes, setExpandedRes] = useState<string | null>(null)
   const [addingPlanForDate, setAddingPlanForDate] = useState<string | null>(null)
@@ -21,61 +17,47 @@ export default function AdminDatesPage() {
   const [savingPlan, setSavingPlan] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
   const initializedRef = useRef(false)
-
   const [newDate, setNewDate] = useState('')
   const [addingDate, setAddingDate] = useState(false)
-
   const [departureTarget, setDepartureTarget] = useState<any | null>(null)
   const [departureLoading, setDepartureLoading] = useState(false)
   const [departureResult, setDepartureResult] = useState<any | null>(null)
-
   const [weatherTarget, setWeatherTarget] = useState<any | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const [weatherResult, setWeatherResult] = useState<any | null>(null)
-
   const [thankTarget, setThankTarget] = useState<any | null>(null)
   const [thankLoading, setThankLoading] = useState(false)
   const [thankResult, setThankResult] = useState<any | null>(null)
-
   const [copySource, setCopySource] = useState<any | null>(null)
   const [copyTargetDate, setCopyTargetDate] = useState('')
   const [copyLoading, setCopyLoading] = useState(false)
   const [copyError, setCopyError] = useState('')
-
   function getAdminHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'x-admin-password': sessionStorage.getItem('admin_pw') || '',
     }
   }
-
   async function loadAll() {
     const past7 = new Date()
     past7.setDate(past7.getDate() - 7)
     const fromDate = past7.toISOString().slice(0, 10)
-
     const { data: datesData } = await supabase
       .from('departure_dates')
       .select('*, plans(id, name, target_fish, departure_time, price, capacity, is_locked)')
       .gte('date', fromDate)
       .order('date')
-
-    const pw = sessionStorage.getItem('admin_pw') || ''
     const resJson = await fetch('/api/admin/reservations', {
-      headers: { 'x-admin-password': pw },
+      headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     }).then(r => r.json())
-
     const dateList = (datesData || []).map((d: any) => ({
       ...d,
       plans: (d.plans || []).sort((a: any, b: any) =>
         a.departure_time < b.departure_time ? -1 : 1
       ),
     }))
-
     setDates(dateList)
     setReservations(resJson.reservations || [])
-
     if (!initializedRef.current) {
       initializedRef.current = true
       const today = new Date().toISOString().slice(0, 10)
@@ -83,9 +65,7 @@ export default function AdminDatesPage() {
       if (next) setOpenDateIds(new Set([next.id]))
     }
   }
-
   useEffect(() => { loadAll() }, [])
-
   function toggleDateId(id: string) {
     setOpenDateIds(prev => {
       const next = new Set(Array.from(prev))
@@ -93,11 +73,9 @@ export default function AdminDatesPage() {
       return next
     })
   }
-
   function getResForPlan(planId: string) {
     return reservations.filter(r => r.plan_id === planId)
   }
-
   function dateSummary(d: any) {
     const plans = d.plans || []
     let resCount = 0
@@ -109,7 +87,6 @@ export default function AdminDatesPage() {
     }
     return { planCount: plans.length, resCount, memberCount }
   }
-
   async function loadMembers(resId: string) {
     if (members[resId]) {
       setExpandedRes(expandedRes === resId ? null : resId)
@@ -119,7 +96,6 @@ export default function AdminDatesPage() {
     setMembers(prev => ({ ...prev, [resId]: data || [] }))
     setExpandedRes(resId)
   }
-
   async function handleCancel(r: any) {
     const label = `${r.representative_name}（${r.reservation_number}）`
     if (!confirm(`「${label}」の予約をキャンセルしますか？\n乗船名簿からも削除されます。`)) return
@@ -134,7 +110,6 @@ export default function AdminDatesPage() {
     if (!res.ok) { alert('キャンセルに失敗しました: ' + (data.error || '不明なエラー')); return }
     await loadAll()
   }
-
   async function handleAddPlan(dateId: string) {
     const form = planForms[dateId] || { ...emptyPlanForm }
     if (!form.name || !form.target_fish || !form.departure_time || !form.price) {
@@ -165,7 +140,6 @@ export default function AdminDatesPage() {
     setAddingPlanForDate(null)
     await loadAll()
   }
-
   async function handleDeletePlan(id: string) {
     if (!confirm('このプランを削除しますか？')) return
     const res = await fetch('/api/admin/plans', {
@@ -177,7 +151,6 @@ export default function AdminDatesPage() {
     if (!res.ok) { alert('削除に失敗しました: ' + (data.error || '不明なエラー')); return }
     await loadAll()
   }
-
   async function handleAddDate() {
     if (!newDate) return
     setAddingDate(true)
@@ -192,7 +165,6 @@ export default function AdminDatesPage() {
     setNewDate('')
     await loadAll()
   }
-
   async function handleDeleteDate(id: string) {
     if (!confirm('この出船日を削除しますか？\nプランも全て削除されます。')) return
     const res = await fetch('/api/admin/dates', {
@@ -205,7 +177,6 @@ export default function AdminDatesPage() {
     setOpenDateIds(prev => { const s = new Set(Array.from(prev)); s.delete(id); return s })
     await loadAll()
   }
-
   async function toggleOpen(id: string, current: boolean) {
     const res = await fetch('/api/admin/dates', {
       method: 'PATCH',
@@ -215,7 +186,6 @@ export default function AdminDatesPage() {
     if (!res.ok) { const data = await res.json(); alert('更新に失敗しました: ' + (data.error || '')); return }
     await loadAll()
   }
-
   async function unlockPlans(dateId: string) {
     const res = await fetch('/api/admin/plans', {
       method: 'PATCH',
@@ -225,7 +195,6 @@ export default function AdminDatesPage() {
     if (!res.ok) { const data = await res.json(); alert('ロック解除に失敗しました: ' + (data.error || '')); return }
     await loadAll()
   }
-
   async function handleDepartureConfirm() {
     if (!departureTarget) return
     setDepartureLoading(true)
@@ -241,7 +210,6 @@ export default function AdminDatesPage() {
       setDepartureResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
     } catch (e: any) { setDepartureLoading(false); alert('通信エラー: ' + (e?.message || String(e))) }
   }
-
   async function handleWeatherCancel() {
     if (!weatherTarget) return
     setWeatherLoading(true)
@@ -258,7 +226,6 @@ export default function AdminDatesPage() {
       await loadAll()
     } catch (e: any) { setWeatherLoading(false); alert('通信エラー: ' + (e?.message || String(e))) }
   }
-
   async function handleThankYou() {
     if (!thankTarget) return
     setThankLoading(true)
@@ -274,7 +241,6 @@ export default function AdminDatesPage() {
       setThankResult({ notified: data.notified, total: data.total, lineUsers: data.lineUsers, errors: data.errors })
     } catch (e: any) { setThankLoading(false); alert('通信エラー: ' + (e?.message || String(e))) }
   }
-
   async function handleCopy() {
     if (!copySource || !copyTargetDate) return
     setCopyLoading(true)
@@ -292,9 +258,7 @@ export default function AdminDatesPage() {
     } catch (e: any) { setCopyError('予期しないエラー: ' + (e?.message || String(e))) }
     finally { setCopyLoading(false) }
   }
-
   const today = new Date().toISOString().slice(0, 10)
-
   return (
     <div className="p-4">
       {/* ヘッダー */}
@@ -311,7 +275,6 @@ export default function AdminDatesPage() {
           🔄 更新
         </button>
       </div>
-
       {/* 出船日追加 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
         <p className="text-sm font-bold text-navy-700 mb-3">新しい出船日を追加</p>
@@ -325,13 +288,11 @@ export default function AdminDatesPage() {
           </button>
         </div>
       </div>
-
       {dates.length === 0 && (
         <div className="bg-white rounded-xl border border-dashed border-gray-200 text-center py-10 text-gray-400 text-sm">
           出船日がありません
         </div>
       )}
-
       {/* 出船日リスト */}
       <div className="space-y-3">
         {dates.map((d) => {
@@ -339,7 +300,6 @@ export default function AdminDatesPage() {
           const isOpen = openDateIds.has(d.id)
           const { planCount, resCount, memberCount } = dateSummary(d)
           const plans = d.plans || []
-
           return (
             <div key={d.id} className="mb-2">
               {/* 日付ヘッダー */}
@@ -367,11 +327,9 @@ export default function AdminDatesPage() {
                   {isOpen ? '▲' : '▼'}
                 </span>
               </button>
-
               {/* 展開パネル */}
               {isOpen && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
-
                   {/* LINE通知ボタン */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
@@ -387,7 +345,6 @@ export default function AdminDatesPage() {
                       <span>🙏</span><span>お礼送信</span>
                     </button>
                   </div>
-
                   {/* サブ操作 */}
                   <div className="flex gap-2 flex-wrap mb-4">
                     <a href={`/api/admin/export?dateId=${d.id}`} download
@@ -415,19 +372,16 @@ export default function AdminDatesPage() {
                       削除
                     </button>
                   </div>
-
                   {/* プラン一覧 */}
                   {plans.length === 0 && (
                     <div className="text-center py-4 text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg mb-3">
                       プランがまだ登録されていません
                     </div>
                   )}
-
                   <div className="space-y-3 mb-3">
                     {plans.map((plan: any) => {
                       const planRes = getResForPlan(plan.id)
                       const bookedCount = planRes.reduce((s: number, r: any) => s + (r.total_members || 0), 0)
-
                       return (
                         <div key={plan.id} className="border border-gray-200 rounded-xl overflow-hidden">
                           {/* プランヘッダー */}
@@ -454,7 +408,6 @@ export default function AdminDatesPage() {
                               削除
                             </button>
                           </div>
-
                           {/* このプランの予約一覧 */}
                           <div className="divide-y divide-gray-100">
                             {planRes.length === 0 && (
@@ -545,7 +498,6 @@ export default function AdminDatesPage() {
                       )
                     })}
                   </div>
-
                   {/* プラン追加 */}
                   {plans.length < 5 ? (
                     addingPlanForDate === d.id ? (
@@ -619,7 +571,6 @@ export default function AdminDatesPage() {
           )
         })}
       </div>
-
       {/* 出航決定通知モーダル */}
       {departureTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -659,7 +610,6 @@ export default function AdminDatesPage() {
           </div>
         </div>
       )}
-
       {/* 天候不良キャンセルモーダル */}
       {weatherTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -698,7 +648,6 @@ export default function AdminDatesPage() {
           </div>
         </div>
       )}
-
       {/* お礼メッセージモーダル */}
       {thankTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -735,7 +684,6 @@ export default function AdminDatesPage() {
           </div>
         </div>
       )}
-
       {/* コピーモーダル */}
       {copySource && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
+import { logAdminAction } from '@/lib/adminLog'
 
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   try {
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
 
     // 送信日時を記録
     await db.from('departure_dates').update({ departure_notified_at: new Date().toISOString() }).eq('id', dateId)
+    logAdminAction(req, 'departure_confirm', `日程ID: ${dateId} 通知数: ${notified}`).catch(() => {})
 
     return NextResponse.json({
       ok: true,

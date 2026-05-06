@@ -4,7 +4,7 @@ import { checkAdminAuth } from '@/lib/adminAuth'
 
 // プランを追加
 export async function POST(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const body = await req.json()
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
 // プランを削除
 export async function DELETE(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { id } = await req.json()
@@ -78,7 +78,7 @@ export async function DELETE(req: NextRequest) {
 
 // ロック解除
 export async function PATCH(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { departure_date_id } = await req.json()

@@ -2,20 +2,16 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDateJa } from '@/lib/utils'
-
 function getAdminHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'x-admin-password': sessionStorage.getItem('admin_pw') || '',
   }
 }
-
 export default function AdminDashboard() {
   const router = useRouter()
   const [stats, setStats] = useState({ pendingCancellations: 0, upcomingDates: 0 })
   const [recent, setRecent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     async function fetchStats() {
       try {
@@ -23,19 +19,15 @@ export default function AdminDashboard() {
           fetch('/api/admin/reservations', { headers: getAdminHeaders() }).then(r => r.json()),
           fetch('/api/admin/cancellations', { headers: getAdminHeaders() }).then(r => r.json()).catch(() => ({ requests: [] })),
         ])
-
         const reservations: any[] = resData.reservations || []
         const allCancels: any[] = cancelData.requests || []
         const today = new Date().toISOString().slice(0, 10)
-
         const upcomingDateSet = new Set<string>()
         reservations.forEach((r: any) => {
           const date = r.plans?.departure_dates?.date
           if (date && date >= today) upcomingDateSet.add(date)
         })
-
         const pendingCount = allCancels.filter((c: any) => c.status === 'pending').length
-
         setStats({
           pendingCancellations: pendingCount,
           upcomingDates: upcomingDateSet.size,
@@ -49,14 +41,12 @@ export default function AdminDashboard() {
     }
     fetchStats()
   }, [])
-
   return (
     <div className="p-4">
       <div className="flex items-center gap-2 mt-3 mb-4">
         <div className="w-1 h-5 bg-gold-500 rounded-full" />
         <h2 className="text-lg font-bold text-navy-700 font-serif">ダッシュボード</h2>
       </div>
-
       {/* 統計カード */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
@@ -74,7 +64,6 @@ export default function AdminDashboard() {
           <div className="text-xs text-gray-500 mt-1">未処理キャンセル</div>
         </div>
       </div>
-
       {/* キャンセル警告 */}
       {stats.pendingCancellations > 0 && (
         <button onClick={() => router.push('/admin/cancellations')}
@@ -83,7 +72,6 @@ export default function AdminDashboard() {
           <span>→</span>
         </button>
       )}
-
       {/* クイックアクション */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <button onClick={() => router.push('/admin/dates')}
@@ -99,13 +87,11 @@ export default function AdminDashboard() {
           <div className="text-gray-400 text-xs mt-0.5">全予約を確認</div>
         </button>
       </div>
-
       {/* 最近の予約 */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1 h-4 bg-gold-500 rounded-full" />
         <h3 className="font-bold text-sm text-navy-700 font-serif">最近の予約</h3>
       </div>
-
       {loading ? (
         <div className="text-center text-gray-400 py-6 text-sm">読み込み中...</div>
       ) : recent.length === 0 ? (

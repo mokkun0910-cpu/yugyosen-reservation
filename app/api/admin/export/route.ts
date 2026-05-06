@@ -4,7 +4,7 @@ import { checkAdminAuth } from '@/lib/adminAuth'
 import * as XLSX from 'xlsx'
 
 export async function GET(req: NextRequest) {
-  const authError = checkAdminAuth(req)
+  const authError = await checkAdminAuth(req)
   if (authError) return authError
 
   const { searchParams } = new URL(req.url)

@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-
 type MonthStat = {
   year: number
   month: number
@@ -10,7 +9,6 @@ type MonthStat = {
   totalMembers: number
   totalRevenue: number
 }
-
 type YearStat = {
   year: number
   departureDays: number
@@ -19,16 +17,13 @@ type YearStat = {
   totalRevenue: number
   months: MonthStat[]
 }
-
 export default function AdminHistoryPage() {
   const [years, setYears] = useState<YearStat[]>([])
   const [loading, setLoading] = useState(true)
   const [openYears, setOpenYears] = useState<Set<number>>(new Set())
   const [downloading, setDownloading] = useState<string | null>(null)
-
   useEffect(() => {
-    const pw = sessionStorage.getItem('admin_pw') || ''
-    fetch('/api/admin/history', { headers: { 'x-admin-password': pw } })
+    fetch('/api/admin/history', { headers: { 'Content-Type': 'application/json' } })
       .then(r => r.json())
       .then(d => {
         setYears(d.years || [])
@@ -38,7 +33,6 @@ export default function AdminHistoryPage() {
       })
       .finally(() => setLoading(false))
   }, [])
-
   function toggleYear(year: number) {
     setOpenYears(prev => {
       const next = new Set(prev)
@@ -46,16 +40,14 @@ export default function AdminHistoryPage() {
       return next
     })
   }
-
   async function handleExport(year: number, month?: number) {
     const key = month ? `${year}-${month}` : `${year}`
     setDownloading(key)
-    const pw = sessionStorage.getItem('admin_pw') || ''
     const params = new URLSearchParams({ year: String(year) })
     if (month) params.set('month', String(month))
     try {
       const res = await fetch(`/api/admin/export-monthly?${params}`, {
-        headers: { 'x-admin-password': pw },
+        headers: { 'Content-Type': 'application/json' },
       })
       if (!res.ok) { alert('エクスポートに失敗しました。'); return }
       const blob = await res.blob()
@@ -71,11 +63,9 @@ export default function AdminHistoryPage() {
       setDownloading(null)
     }
   }
-
   if (loading) {
     return <div className="flex items-center justify-center h-40 text-gray-400 text-sm">読み込み中...</div>
   }
-
   if (years.length === 0) {
     return (
       <div className="p-4">
@@ -85,14 +75,12 @@ export default function AdminHistoryPage() {
       </div>
     )
   }
-
   return (
     <div className="p-4 space-y-3">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-1 h-5 bg-gold-500 rounded-full" />
         <h2 className="text-lg font-bold text-navy-700 font-serif">予約履歴</h2>
       </div>
-
       {years.map(y => (
         <div key={y.year} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* 年ヘッダー */}
@@ -121,7 +109,6 @@ export default function AdminHistoryPage() {
               <span className={`text-gray-400 text-sm transition-transform duration-200 ${openYears.has(y.year) ? 'rotate-180' : ''}`}>▼</span>
             </div>
           </button>
-
           {/* 月別一覧 */}
           {openYears.has(y.year) && (
             <div className="border-t border-gray-100">

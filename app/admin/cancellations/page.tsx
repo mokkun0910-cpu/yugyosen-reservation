@@ -1,26 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDateJa } from '@/lib/utils'
-
 function getAdminHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'x-admin-password': sessionStorage.getItem('admin_pw') || '',
   }
 }
-
 export default function AdminCancellationsPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
-
   async function fetchRequests() {
     const res = await fetch('/api/admin/cancellations', { headers: getAdminHeaders() })
     const data = await res.json()
     setRequests(data.requests || [])
   }
-
   useEffect(() => { fetchRequests() }, [])
-
   async function handleAction(id: string, action: 'approve' | 'reject') {
     const label = action === 'approve' ? '承認' : '却下'
     if (!confirm(`このキャンセル申請を${label}しますか？`)) return
@@ -33,21 +27,17 @@ export default function AdminCancellationsPage() {
     await fetchRequests()
     setProcessing(null)
   }
-
   const pending = requests.filter((r) => r.status === 'pending')
   const done = requests.filter((r) => r.status !== 'pending')
-
   return (
     <div className="p-4">
       <h2 className="section-title mt-2">キャンセル申請</h2>
-
       {pending.length === 0 && (
         <div className="card text-center py-6 mb-4">
           <div className="text-3xl mb-2">✅</div>
           <p className="text-gray-500 text-sm">未処理の申請はありません</p>
         </div>
       )}
-
       {pending.length > 0 && (
         <>
           <p className="text-sm font-bold text-red-600 mb-3">⚠️ 未処理 {pending.length}件</p>
@@ -90,7 +80,6 @@ export default function AdminCancellationsPage() {
           </div>
         </>
       )}
-
       {done.length > 0 && (
         <>
           <p className="text-sm font-bold text-gray-500 mb-3">処理済み</p>
