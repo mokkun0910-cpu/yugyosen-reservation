@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     }
 
     const reservationIds = (reservations as any[]).map((r) => r.id)
+    // 乗船者レコードを削除（アドレス帳の乗船履歴に残さないようにする）
+    await db.from('members').delete().in('reservation_id', reservationIds)
     await db.from('reservations').update({ status: 'cancelled' }).in('id', reservationIds)
     await db.from('departure_dates').update({ is_open: false }).eq('id', dateId)
     // プランのロックを全解除

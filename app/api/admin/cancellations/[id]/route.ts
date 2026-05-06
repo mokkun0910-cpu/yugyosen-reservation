@@ -30,6 +30,8 @@ export async function POST(
 
   if (approved) {
     const reservation = cancelReq.reservations as any
+    // 乗船者レコードを削除（アドレス帳の乗船履歴に残さないようにする）
+    await db.from('members').delete().eq('reservation_id', reservation.id)
     // 予約をキャンセル状態に
     await db.from('reservations').update({ status: 'cancelled' }).eq('id', reservation.id)
 

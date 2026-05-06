@@ -38,10 +38,10 @@ export async function GET(req: NextRequest) {
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
 
-      // 同行者として乗船した履歴
+      // 同行者として乗船した履歴（statusを含めてキャンセル済みを除外できるように）
       const { data: memberRes } = await db
         .from('members')
-        .select('id, reservations(id, reservation_number, total_members, created_at, plans(name, departure_time, departure_dates(date)))')
+        .select('id, reservations(id, reservation_number, total_members, status, created_at, plans(name, departure_time, departure_dates(date)))')
         .eq('phone', person.phone)
         .eq('is_completed', true)
 
@@ -55,10 +55,14 @@ export async function GET(req: NextRequest) {
         role: '代表者',
       }))
 
-      // 同行者履歴をフォーマット（代表者履歴と重複除去）
+      // 同行者履歴をフォーマット（代表者履歴と重複除去・キャンセル済みを除外）
       const repResIds = new Set((repRes || []).map((r: any) => r.id))
       const memberHistory = (memberRes || [])
-        .filter((m: any) => m.reservations && !repResIds.has(m.reservations.id))
+        .filter((m: any) =>
+          m.reservations &&
+          m.reservations.status !== 'cancelled' &&
+          !repResIds.has(m.reservations.id)
+        )
         .map((m: any) => ({
           reservation_number: m.reservations.reservation_number,
           total_members: m.reservations.total_members,
