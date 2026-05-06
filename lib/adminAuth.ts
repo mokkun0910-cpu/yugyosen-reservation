@@ -29,7 +29,10 @@ function verifyToken(token: string): boolean {
     const [header, body, sig] = parts
     const secret = getSecret()
     const expected = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url')
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
+    if (sigBuf.length !== expBuf.length) return false
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return false
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString())
     if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return false
     return true

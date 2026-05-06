@@ -19,13 +19,23 @@ export default function AdminCancellationsPage() {
     const label = action === 'approve' ? '承認' : '却下'
     if (!confirm(`このキャンセル申請を${label}しますか？`)) return
     setProcessing(id)
-    await fetch(`/api/admin/cancellations/${id}`, {
-      method: 'POST',
-      headers: getAdminHeaders(),
-      body: JSON.stringify({ action }),
-    })
-    await fetchRequests()
-    setProcessing(null)
+    try {
+      const res = await fetch(`/api/admin/cancellations/${id}`, {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(`${label}に失敗しました: ${data.error || '不明なエラー'}`)
+        return
+      }
+      await fetchRequests()
+    } catch (e: any) {
+      alert(`通信エラーが発生しました: ${e?.message || String(e)}`)
+    } finally {
+      setProcessing(null)
+    }
   }
   const pending = requests.filter((r) => r.status === 'pending')
   const done = requests.filter((r) => r.status !== 'pending')

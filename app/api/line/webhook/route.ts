@@ -4,7 +4,8 @@ import { createServerClient } from '@/lib/supabase'
 import { BOAT_NAME } from '@/lib/utils'
 
 function verifySignature(body: string, signature: string): boolean {
-  const secret = process.env.LINE_CHANNEL_SECRET || ''
+  const secret = process.env.LINE_CHANNEL_SECRET
+  if (!secret) return false
   const hash = crypto
     .createHmac('sha256', secret)
     .update(body)
@@ -13,6 +14,11 @@ function verifySignature(body: string, signature: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.LINE_CHANNEL_SECRET) {
+    console.error('LINE_CHANNEL_SECRET が未設定です')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
   const rawBody = await req.text()
   const signature = req.headers.get('x-line-signature') || ''
 

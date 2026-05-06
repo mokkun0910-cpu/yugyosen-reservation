@@ -9,13 +9,16 @@ function ReserveFormContent() {
   const planId = searchParams.get('planId') || ''
   const planName = searchParams.get('planName') || ''
   const members = Number(searchParams.get('members') || 1)
-  const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
+  // LINE User IDはURLではなくsessionStorageから取得（URLログへの露出防止）
+  const lineUserIdFromStorage = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('liff_uid') || '')
+    : ''
 
   const [form, setForm] = useState({
     name: '',
     furigana: '',
     phone: '',
-    lineUserId: lineUserIdFromUrl,
+    lineUserId: lineUserIdFromStorage,
     birth_date: '',
     address: '',
     emergency_contact_name: '',
@@ -24,7 +27,7 @@ function ReserveFormContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const isLinked = !!lineUserIdFromUrl
+  const isLinked = !!lineUserIdFromStorage
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })

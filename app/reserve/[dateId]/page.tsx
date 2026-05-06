@@ -111,12 +111,17 @@ function PlanSelectContent() {
 
   function handleNext() {
     if (!selectedPlan) return
+    // LINE User IDはURLに含めずsessionStorageで受け渡し（URLログへの露出防止）
+    if (lineUserId) {
+      sessionStorage.setItem('liff_uid', lineUserId)
+    } else {
+      sessionStorage.removeItem('liff_uid')
+    }
     const params = new URLSearchParams({
       planId: selectedPlan.id,
       planName: selectedPlan.name,
       members: String(members),
     })
-    if (lineUserId) params.set('lineUserId', lineUserId)
     router.push(`/reserve/${dateId}/form?${params.toString()}`)
   }
 
