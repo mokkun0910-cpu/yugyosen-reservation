@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     // memberId が当該 reservationId に属することを確認（他者の乗船者削除を防止）
     const { data: member } = await db
       .from('members')
-      .select('name')
+      .select('id, name, phone')
       .eq('id', memberId)
       .eq('reservation_id', reservationId)
       .single()
@@ -218,6 +218,32 @@ export async function POST(req: NextRequest) {
       // 人数を1減らして乗船者レコードを削除
       await db.from('reservations').update({ total_members: newTotal }).eq('id', reservationId)
       await db.from('members').delete().eq('id', memberId)
+
+      // ── 代表者が自分自身をキャンセルした場合、代表者を次の乗船者に移行 ──
+      const isRepresentative =
+        reservation.representative_name === member.name &&
+        reservation.representative_phone === member.phone
+
+      if (isRepresentative) {
+        // 残っている乗船者の中から最初の人を新代表者にする
+        const { data: remaining } = await db
+          .from('members')
+          .select('id, name, phone')
+          .eq('reservation_id', reservationId)
+          .eq('is_completed', true)
+          .order('id', { ascending: true })
+          .limit(1)
+
+        const nextRep = remaining && remaining.length > 0 ? remaining[0] : null
+        if (nextRep) {
+          await db.from('reservations').update({
+            representative_name: nextRep.name,
+            representative_phone: nextRep.phone || reservation.representative_phone,
+            // LINEはお客様が自分でLIFF経由で紐付けるため引き継ぎはしない
+            line_user_id: null,
+          }).eq('id', reservationId)
+        }
+      }
     }
 
     // 船長にLINE通知
