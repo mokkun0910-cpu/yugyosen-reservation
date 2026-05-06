@@ -10,7 +10,11 @@ export async function POST(
 ) {
   const { token } = params
   const body = await req.json()
-  const { name, furigana, birth_date, address, phone, emergency_contact_name, emergency_contact_phone } = body
+  const {
+    name, furigana, birth_date, address, phone,
+    emergency_contact_name, emergency_contact_phone,
+    line_user_id,  // LINEブラウザから開いた場合に取得（任意）
+  } = body
 
   const db = createServerClient()
 
@@ -24,18 +28,30 @@ export async function POST(
   if (!member) return NextResponse.json({ error: '無効なリンクです。' }, { status: 404 })
   if (member.is_completed) return NextResponse.json({ error: 'すでに入力済みです。' }, { status: 400 })
 
-  // 乗船者情報を更新
+  // 乗船者情報を更新（line_user_id が取得できていれば一緒に保存）
   await db.from('members').update({
-    name, furigana: furigana || null, birth_date, address, phone,
-    emergency_contact_name, emergency_contact_phone,
+    name,
+    furigana: furigana || null,
+    birth_date,
+    address,
+    phone,
+    emergency_contact_name,
+    emergency_contact_phone,
     is_completed: true,
+    ...(line_user_id ? { line_user_id } : {}),
   }).eq('input_token', token)
 
-  // アドレス帳に同行者情報を自動登録・更新
+  // アドレス帳に同行者情報を自動登録・更新（LINE連携も反映）
   if (name && phone) {
     await upsertAddressBook(db, {
-      name, furigana: furigana || null, phone, birth_date, address,
-      emergency_contact_name, emergency_contact_phone,
+      name,
+      furigana: furigana || null,
+      phone,
+      birth_date,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+      ...(line_user_id ? { line_user_id } : {}),
     }).catch(console.error)
   }
 

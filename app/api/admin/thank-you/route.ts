@@ -3,6 +3,16 @@ import { createServerClient } from '@/lib/supabase'
 import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 
+/** LINE Push API に1件送信 */
+async function pushLine(token: string, to: string, text: string): Promise<boolean> {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
+  })
+  return res.ok
+}
+
 export async function POST(req: NextRequest) {
   const authError = await checkAdminAuth(req)
   if (authError) return authError
@@ -54,6 +64,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, notified: 0, total: 0, lineUsers: 0, debug: '予約なし' })
     }
 
+    // 同行者のLINE IDを取得
+    const reservationIds = (reservations as any[]).map((r) => r.id)
+    const { data: companionMembers } = await db
+      .from('members')
+      .select('line_user_id')
+      .in('reservation_id', reservationIds)
+      .not('line_user_id', 'is', null)
+
+    // 通知対象LINE IDを重複なしで収集（代表者 + 同行者）
+    const repLineIds = new Set(
+      (reservations as any[]).map((r) => r.line_user_id).filter(Boolean)
+    )
+    const allLineIds = new Set<string>(repLineIds)
+    for (const m of companionMembers || []) {
+      if (m.line_user_id) allLineIds.add(m.line_user_id)
+    }
+
     const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN
     if (!lineToken) {
       return NextResponse.json({ error: 'LINE_CHANNEL_ACCESS_TOKEN が未設定です。Vercelの環境変数を確認してください。' }, { status: 500 })
@@ -71,26 +98,16 @@ export async function POST(req: NextRequest) {
 またお会いできる日を楽しみにしています！
 ${BOAT_NAME}`
 
-    const lineUserCount = (reservations as any[]).filter((r: any) => r.line_user_id).length
     let notified = 0
     const errors: string[] = []
 
-    for (const r of reservations as any[]) {
-      if (!r.line_user_id) continue
+    for (const userId of allLineIds) {
       try {
-        const res = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lineToken}` },
-          body: JSON.stringify({ to: r.line_user_id, messages: [{ type: 'text', text: message }] }),
-        })
-        if (res.ok) {
-          notified++
-        } else {
-          const errText = await res.text()
-          errors.push(`LINE APIエラー(${res.status}): ${errText}`)
-        }
+        const ok = await pushLine(lineToken, userId, message)
+        if (ok) notified++
+        else errors.push(`送信失敗(${userId.slice(0, 8)}…)`)
       } catch (e: any) {
-        errors.push(`送信失敗: ${e?.message}`)
+        errors.push(`送信例外: ${e?.message}`)
       }
     }
 
@@ -101,7 +118,7 @@ ${BOAT_NAME}`
       ok: true,
       notified,
       total: (reservations as any[]).length,
-      lineUsers: lineUserCount,
+      lineUsers: allLineIds.size,
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (e: any) {

@@ -4,6 +4,16 @@ import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/adminLog'
 
+/** LINE Push API に1件送信 */
+async function pushLine(token: string, to: string, text: string): Promise<boolean> {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
+  })
+  return res.ok
+}
+
 export async function POST(req: NextRequest) {
   const authError = await checkAdminAuth(req)
   if (authError) return authError
@@ -58,6 +68,23 @@ export async function POST(req: NextRequest) {
     }
 
     const reservationIds = (reservations as any[]).map((r) => r.id)
+
+    // ★ members 削除前に同行者のLINE IDを収集
+    const { data: companionMembers } = await db
+      .from('members')
+      .select('line_user_id')
+      .in('reservation_id', reservationIds)
+      .not('line_user_id', 'is', null)
+
+    // 通知対象LINE IDを重複なしで収集（代表者 + 同行者）
+    const repLineIds = new Set(
+      (reservations as any[]).map((r) => r.line_user_id).filter(Boolean)
+    )
+    const allLineIds = new Set<string>(repLineIds)
+    for (const m of companionMembers || []) {
+      if (m.line_user_id) allLineIds.add(m.line_user_id)
+    }
+
     // 乗船者レコードを削除（アドレス帳の乗船履歴に残さないようにする）
     await db.from('members').delete().in('reservation_id', reservationIds)
     await db.from('reservations').update({ status: 'cancelled' }).in('id', reservationIds)
@@ -82,43 +109,31 @@ export async function POST(req: NextRequest) {
 
 誠に申し訳ございませんが、当日の出船を中止とさせていただきます。
 
-もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。
-
 またのご予約をお待ちしております。
 🎣 ${BOAT_NAME}`
 
-    const lineUserCount = (reservations as any[]).filter((r: any) => r.line_user_id).length
     let notified = 0
     const errors: string[] = []
 
-    for (const r of reservations as any[]) {
-      if (!r.line_user_id) continue
+    for (const userId of allLineIds) {
       try {
-        const res = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lineToken}` },
-          body: JSON.stringify({ to: r.line_user_id, messages: [{ type: 'text', text: message }] }),
-        })
-        if (res.ok) {
-          notified++
-        } else {
-          const errText = await res.text()
-          errors.push(`LINE APIエラー(${res.status}): ${errText}`)
-        }
+        const ok = await pushLine(lineToken, userId, message)
+        if (ok) notified++
+        else errors.push(`送信失敗(${userId.slice(0, 8)}…)`)
       } catch (e: any) {
-        errors.push(`送信失敗: ${e?.message}`)
+        errors.push(`送信例外: ${e?.message}`)
       }
     }
 
     // 送信日時を記録
     await db.from('departure_dates').update({ weather_notified_at: new Date().toISOString() }).eq('id', dateId)
-    logAdminAction(req, 'weather_cancel', `日程ID: ${dateId} (${dateLabel}) キャンセル数: ${(reservations as any[]).length}`).catch(() => {})
+    logAdminAction(req, 'weather_cancel', `日程ID: ${dateId} (${dateLabel}) キャンセル数: ${(reservations as any[]).length} LINE通知: ${notified}`).catch(() => {})
 
     return NextResponse.json({
       ok: true,
       cancelled: (reservations as any[]).length,
       notified,
-      lineUsers: lineUserCount,
+      lineUsers: allLineIds.size,
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (e: any) {

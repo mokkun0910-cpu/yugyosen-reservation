@@ -4,6 +4,16 @@ import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/adminLog'
 
+/** LINE Push API に1件送信 */
+async function pushLine(token: string, to: string, text: string): Promise<boolean> {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to, messages: [{ type: 'text', text }] }),
+  })
+  return res.ok
+}
+
 export async function POST(req: NextRequest) {
   const authError = await checkAdminAuth(req)
   if (authError) return authError
@@ -60,14 +70,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'LINE_CHANNEL_ACCESS_TOKEN が未設定です。Vercelの環境変数を確認してください。' }, { status: 500 })
     }
 
-    const lineUserCount = (reservations as any[]).filter((r) => r.line_user_id).length
+    // 同行者のLINE IDを取得
+    const reservationIds = (reservations as any[]).map((r) => r.id)
+    const { data: companionMembers } = await db
+      .from('members')
+      .select('line_user_id, reservation_id')
+      .in('reservation_id', reservationIds)
+      .not('line_user_id', 'is', null)
+
+    // 代表者のLINE IDセット（重複通知防止）
+    const repLineIds = new Set(
+      (reservations as any[]).map((r) => r.line_user_id).filter(Boolean)
+    )
+
+    // 代表者 + 同行者の全LINE IDを重複なしで収集
+    const allTargets: { userId: string; planId?: string }[] = []
+    for (const r of reservations as any[]) {
+      if (r.line_user_id) allTargets.push({ userId: r.line_user_id, planId: r.plan_id })
+    }
+    for (const m of companionMembers || []) {
+      if (m.line_user_id && !repLineIds.has(m.line_user_id)) {
+        const res = (reservations as any[]).find((r) => r.id === m.reservation_id)
+        allTargets.push({ userId: m.line_user_id, planId: res?.plan_id })
+      }
+    }
+
+    const lineUserCount = allTargets.length
     let notified = 0
     const errors: string[] = []
 
-    for (const r of reservations as any[]) {
-      if (!r.line_user_id) continue
-
-      const plan = (plans as any[]).find((p) => p.id === r.plan_id)
+    for (const target of allTargets) {
+      const plan = (plans as any[]).find((p) => p.id === target.planId)
       const departureTime = plan?.departure_time?.slice(0, 5) || ''
 
       const message = `⚓ 出航決定のお知らせ
@@ -78,31 +111,21 @@ export async function POST(req: NextRequest) {
 明日の出航が決定いたしました。
 ご予約いただきありがとうございます。
 
-もし、ご同行者様がいらっしゃいましたら、お手数ですがそちらの方へも共有いただけますと幸いです。
-
 当日皆様のご乗船をお待ちしております。
 🎣 ${BOAT_NAME}`
 
       try {
-        const res = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${lineToken}` },
-          body: JSON.stringify({ to: r.line_user_id, messages: [{ type: 'text', text: message }] }),
-        })
-        if (res.ok) {
-          notified++
-        } else {
-          const errText = await res.text()
-          errors.push(`LINE APIエラー(${res.status}): ${errText}`)
-        }
+        const ok = await pushLine(lineToken, target.userId, message)
+        if (ok) notified++
+        else errors.push(`送信失敗(${target.userId.slice(0, 8)}…)`)
       } catch (e: any) {
-        errors.push(`送信失敗: ${e?.message}`)
+        errors.push(`送信例外: ${e?.message}`)
       }
     }
 
     // 送信日時を記録
     await db.from('departure_dates').update({ departure_notified_at: new Date().toISOString() }).eq('id', dateId)
-    logAdminAction(req, 'departure_confirm', `日程ID: ${dateId} 通知数: ${notified}`).catch(() => {})
+    logAdminAction(req, 'departure_confirm', `日程ID: ${dateId} 通知数: ${notified}(代表${repLineIds.size}+同行者${lineUserCount - repLineIds.size})`).catch(() => {})
 
     return NextResponse.json({
       ok: true,

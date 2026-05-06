@@ -3,28 +3,60 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+/**
+ * LINEブラウザ経由のアクセス時にLINE User IDを取得（任意・失敗しても続行）
+ * ※ 通常ブラウザからのアクセス時は空文字を返す（ログイン強制しない）
+ */
+async function tryGetLineUserId(): Promise<string> {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  if (!liffId) return ''
+  try {
+    const liffModule = await import('@line/liff')
+    const liff = liffModule.default
+    await liff.init({ liffId })
+    if (!liff.isLoggedIn()) {
+      // LINEブラウザ外からのアクセスはLINEログインを強制しない
+      // → 通常のフォームとして使えるようにする
+      return ''
+    }
+    const profile = await liff.getProfile()
+    return profile.userId
+  } catch {
+    return ''
+  }
+}
+
 export default function MemberInputPage() {
   const { token } = useParams<{ token: string }>()
   const [status, setStatus] = useState<'loading' | 'form' | 'done' | 'error'>('loading')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lineUserId, setLineUserId] = useState('')
   const [form, setForm] = useState({
     name: '', furigana: '', birth_date: '', address: '',
     phone: '', emergency_contact_name: '', emergency_contact_phone: '',
   })
 
   useEffect(() => {
-    async function check() {
-      const { data } = await supabase
-        .from('members')
-        .select('is_completed')
-        .eq('input_token', token)
-        .single()
+    async function init() {
+      // トークン確認とLIFF初期化を並列実行
+      const [memberResult, userId] = await Promise.all([
+        supabase
+          .from('members')
+          .select('is_completed')
+          .eq('input_token', token)
+          .single(),
+        tryGetLineUserId(),
+      ])
+
+      if (userId) setLineUserId(userId)
+
+      const { data } = memberResult
       if (!data) { setStatus('error'); return }
       if (data.is_completed) { setStatus('done'); return }
       setStatus('form')
     }
-    check()
+    init()
   }, [token])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -46,7 +78,8 @@ export default function MemberInputPage() {
     const res = await fetch(`/api/member/${token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      // line_user_id が取得できていれば一緒に送信
+      body: JSON.stringify({ ...form, line_user_id: lineUserId || null }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error || 'エラーが発生しました。'); setLoading(false); return }
@@ -75,6 +108,11 @@ export default function MemberInputPage() {
           <div className="text-5xl mb-3">✅</div>
           <h2 className="font-bold text-lg text-gray-800 mb-2">入力完了しました</h2>
           <p className="text-gray-500 text-sm">ご協力ありがとうございます。</p>
+          {lineUserId && (
+            <p className="text-xs text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-3">
+              💬 LINEと連携しました。出航情報などをLINEでお知らせします。
+            </p>
+          )}
         </div>
       </div>
     )
@@ -91,6 +129,12 @@ export default function MemberInputPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
           <p>この情報は乗船名簿として使用されます。すべての項目を正確に入力してください。</p>
         </div>
+
+        {lineUserId && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">
+            💬 LINEと連携されました。入力後、出航情報などをLINEでお知らせします。
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
