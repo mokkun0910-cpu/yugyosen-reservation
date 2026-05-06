@@ -130,11 +130,17 @@ export default function MemberInputPage() {
           <p>この情報は乗船名簿として使用されます。すべての項目を正確に入力してください。</p>
         </div>
 
-        {lineUserId && (
+        {lineUserId ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">
             💬 LINEと連携されました。入力後、出航情報などをLINEでお知らせします。
           </div>
-        )}
+        ) : process.env.NEXT_PUBLIC_LIFF_ID ? (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4 text-sm text-yellow-800">
+            <p className="font-bold mb-1">📱 LINEアプリから開いてください</p>
+            <p>出航確定・キャンセルなどの通知をLINEで受け取るには、<strong>LINEのトーク画面からこのリンクを開いてください。</strong></p>
+            <p className="mt-1 text-xs text-yellow-700">※ このまま入力しても乗船名簿への登録はできますが、LINE通知は受け取れません。</p>
+          </div>
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
