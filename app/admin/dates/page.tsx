@@ -35,6 +35,10 @@ export default function AdminDatesPage() {
   const [copyTargetDate, setCopyTargetDate] = useState('')
   const [copyLoading, setCopyLoading] = useState(false)
   const [copyError, setCopyError] = useState('')
+  const [editingPlan, setEditingPlan] = useState<any | null>(null)
+  const [editPlanForm, setEditPlanForm] = useState({ capacity: '', price: '' })
+  const [editPlanSaving, setEditPlanSaving] = useState(false)
+  const [editPlanError, setEditPlanError] = useState('')
   function getAdminHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
@@ -261,6 +265,27 @@ export default function AdminDatesPage() {
     } catch (e: any) { setCopyError('予期しないエラー: ' + (e?.message || String(e))) }
     finally { setCopyLoading(false) }
   }
+  async function handleEditPlan() {
+    if (!editingPlan) return
+    setEditPlanSaving(true)
+    setEditPlanError('')
+    try {
+      const res = await fetch('/api/admin/plans', {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          id: editingPlan.id,
+          capacity: Number(editPlanForm.capacity),
+          price: Number(editPlanForm.price),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setEditPlanError(data.error || '不明なエラー'); return }
+      setEditingPlan(null)
+      await loadAll()
+    } catch (e: any) { setEditPlanError('通信エラー: ' + (e?.message || String(e))) }
+    finally { setEditPlanSaving(false) }
+  }
   const today = new Date().toISOString().slice(0, 10)
   return (
     <div className="p-4">
@@ -459,10 +484,21 @@ export default function AdminDatesPage() {
                                 )}
                               </div>
                             </div>
-                            <button onClick={() => handleDeletePlan(plan.id)}
-                              className="text-xs text-red-500 border border-red-200 bg-white px-2 py-1 rounded-lg hover:bg-red-50 shrink-0">
-                              削除
-                            </button>
+                            <div className="flex gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingPlan(plan)
+                                  setEditPlanForm({ capacity: String(plan.capacity), price: String(plan.price) })
+                                  setEditPlanError('')
+                                }}
+                                className="text-xs text-navy-600 border border-navy-200 bg-white px-2 py-1 rounded-lg hover:bg-navy-50">
+                                ✏️ 編集
+                              </button>
+                              <button onClick={() => handleDeletePlan(plan.id)}
+                                className="text-xs text-red-500 border border-red-200 bg-white px-2 py-1 rounded-lg hover:bg-red-50">
+                                削除
+                              </button>
+                            </div>
                           </div>
                           {/* このプランの予約一覧 */}
                           <div className="divide-y divide-gray-100">
@@ -818,6 +854,61 @@ export default function AdminDatesPage() {
                 disabled={copyLoading || !copyTargetDate || !!(copyTargetDate && dates.find(d => d.date === copyTargetDate)?.plans?.length > 0)}
                 className="flex-1 py-2 rounded-lg bg-navy-600 text-white text-sm font-bold disabled:opacity-50">
                 {copyLoading ? 'コピー中...' : 'コピーする'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* プラン編集モーダル */}
+      {editingPlan && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5">
+            <h3 className="font-bold text-navy-700 text-base mb-1">プランを編集</h3>
+            <p className="text-xs text-gray-500 mb-4">{editingPlan.name}</p>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="label">定員（名）<span className="text-red-500">*</span></label>
+                <input
+                  className="input-field"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={editPlanForm.capacity}
+                  onChange={e => setEditPlanForm(prev => ({ ...prev, capacity: e.target.value }))}
+                  placeholder="例：10"
+                />
+                <p className="text-xs text-gray-400 mt-1">※ 現在の予約人数以上の値のみ設定可能です</p>
+              </div>
+              <div>
+                <label className="label">料金（円 / 1名）<span className="text-red-500">*</span></label>
+                <input
+                  className="input-field"
+                  type="number"
+                  min={0}
+                  value={editPlanForm.price}
+                  onChange={e => setEditPlanForm(prev => ({ ...prev, price: e.target.value }))}
+                  placeholder="例：8000"
+                />
+              </div>
+            </div>
+
+            {editPlanError && (
+              <p className="text-xs text-red-500 mb-3">⚠️ {editPlanError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditingPlan(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium">
+                キャンセル
+              </button>
+              <button
+                onClick={handleEditPlan}
+                disabled={editPlanSaving || !editPlanForm.capacity || !editPlanForm.price}
+                className="flex-1 py-2.5 rounded-xl bg-navy-700 text-white text-sm font-bold disabled:opacity-50">
+                {editPlanSaving ? '保存中...' : '保存する'}
               </button>
             </div>
           </div>

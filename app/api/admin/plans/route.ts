@@ -76,6 +76,60 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
+// プラン編集（定員・料金・名前など）
+export async function PUT(req: NextRequest) {
+  const authError = await checkAdminAuth(req)
+  if (authError) return authError
+
+  const body = await req.json()
+  const { id, capacity, price, name, target_fish } = body
+  if (!id) return NextResponse.json({ error: 'idが必要です。' }, { status: 400 })
+
+  const updates: Record<string, any> = {}
+  if (capacity !== undefined) {
+    const cap = Number(capacity)
+    if (!Number.isInteger(cap) || cap < 1 || cap > 100) {
+      return NextResponse.json({ error: '定員は1〜100の整数で入力してください。' }, { status: 400 })
+    }
+    updates.capacity = cap
+  }
+  if (price !== undefined) {
+    const p = Number(price)
+    if (isNaN(p) || p < 0) {
+      return NextResponse.json({ error: '料金が不正です。' }, { status: 400 })
+    }
+    updates.price = p
+  }
+  if (name !== undefined) updates.name = String(name).trim()
+  if (target_fish !== undefined) updates.target_fish = String(target_fish).trim()
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: '更新する項目がありません。' }, { status: 400 })
+  }
+
+  const db = createServerClient()
+
+  // 定員を下げる場合、既存予約人数を超えないかチェック
+  if (updates.capacity !== undefined) {
+    const { data: existingRes } = await db
+      .from('reservations')
+      .select('total_members')
+      .eq('plan_id', id)
+      .neq('status', 'cancelled')
+    const currentBooked = (existingRes || []).reduce((sum: number, r: any) => sum + r.total_members, 0)
+    if (updates.capacity < currentBooked) {
+      return NextResponse.json(
+        { error: `既に${currentBooked}名が予約済みのため、定員を${currentBooked}名未満に設定できません。` },
+        { status: 400 }
+      )
+    }
+  }
+
+  const { error } = await db.from('plans').update(updates).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
 // ロック解除
 export async function PATCH(req: NextRequest) {
   const authError = await checkAdminAuth(req)

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/auto-lock",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/companion-reminder",
+      "schedule": "0 0 * * *"
     }
   ]
 }
