@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 
 function ReserveFormContent() {
@@ -26,6 +26,29 @@ function ReserveFormContent() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [profileLoaded, setProfileLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!lineUserIdFromStorage) return
+    fetch(`/api/user/profile?lineUserId=${encodeURIComponent(lineUserIdFromStorage)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.found) {
+          setForm(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            furigana: data.furigana || prev.furigana,
+            phone: data.phone || prev.phone,
+            birth_date: data.birth_date || prev.birth_date,
+            address: data.address || prev.address,
+            emergency_contact_name: data.emergency_contact_name || prev.emergency_contact_name,
+            emergency_contact_phone: data.emergency_contact_phone || prev.emergency_contact_phone,
+          }))
+          setProfileLoaded(true)
+        }
+      })
+      .catch(() => {})
+  }, [lineUserIdFromStorage])
 
   const isLinked = !!lineUserIdFromStorage
 
@@ -88,6 +111,15 @@ function ReserveFormContent() {
       <div className="h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
 
       <div className="p-4">
+        {profileLoaded && (
+          <div className="bg-green-50 border border-green-300 rounded-xl p-3 mb-4 flex items-start gap-2">
+            <span className="text-green-600 mt-0.5">✅</span>
+            <p className="text-sm text-green-800 font-medium">
+              前回ご利用時の情報を自動入力しました。内容をご確認ください。
+            </p>
+          </div>
+        )}
+
         <div className="bg-gold-50 border border-gold-200 rounded-xl p-4 mb-4">
           <div className="text-sm text-gray-700">
             <span className="font-bold text-navy-700">選択プラン：</span>{planName}

@@ -291,6 +291,52 @@ export default function AdminDatesPage() {
           </button>
         </div>
       </div>
+      {/* 通知未送信アラート */}
+      {(() => {
+        const todayJst = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10)
+        const tomorrowJst = new Date(Date.now() + 9*60*60*1000 + 86400000).toISOString().slice(0,10)
+        const unnotified = dates.filter(d => {
+          const { resCount } = dateSummary(d)
+          return (d.date === todayJst || d.date === tomorrowJst)
+            && resCount > 0
+            && !d.departure_notified_at
+            && !d.weather_notified_at
+        })
+        if (unnotified.length === 0) return null
+        return (
+          <div className="bg-orange-50 border border-orange-300 rounded-xl p-4 mb-4">
+            <div className="flex items-start gap-2 mb-3">
+              <span className="text-lg">🔔</span>
+              <div>
+                <p className="font-bold text-orange-800 text-sm">通知が未送信の日程があります</p>
+                <p className="text-xs text-orange-700 mt-0.5">以下の日程に予約が入っていますが、出航通知・天候キャンセル通知がまだ送信されていません。</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {unnotified.map(d => {
+                const todayJstCheck = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10)
+                const tomorrowJstCheck = new Date(Date.now() + 9*60*60*1000 + 86400000).toISOString().slice(0,10)
+                const label = d.date === todayJstCheck ? '今日' : d.date === tomorrowJstCheck ? '明日' : ''
+                const { resCount } = dateSummary(d)
+                return (
+                  <div key={d.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2.5 border border-orange-200">
+                    <div>
+                      <span className="text-xs font-bold text-orange-700 mr-2">{label}</span>
+                      <span className="text-sm font-bold text-navy-700">{formatDateJa(d.date)}</span>
+                      <span className="text-xs text-gray-500 ml-2">予約{resCount}件</span>
+                    </div>
+                    <button
+                      onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
+                      className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition-colors shrink-0">
+                      通知を送る
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
       {dates.length === 0 && (
         <div className="bg-white rounded-xl border border-dashed border-gray-200 text-center py-10 text-gray-400 text-sm">
           出船日がありません
@@ -356,6 +402,10 @@ export default function AdminDatesPage() {
                     <a href={`/api/admin/export?dateId=${d.id}`} download
                       className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
                       📥 乗船名簿
+                    </a>
+                    <a href={`/admin/dates/${d.id}/roster`} target="_blank"
+                      className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg font-medium">
+                      🖨️ 印刷用名簿
                     </a>
                     <button onClick={() => router.push('/admin/reservations/new')}
                       className="text-xs bg-navy-50 text-navy-700 border border-navy-200 px-3 py-1.5 rounded-lg font-medium">

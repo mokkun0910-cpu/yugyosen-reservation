@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDateJa } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 function getAdminHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
@@ -12,12 +13,22 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({ pendingCancellations: 0, upcomingDates: 0 })
   const [recent, setRecent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [upcomingSchedule, setUpcomingSchedule] = useState<any[]>([])
   useEffect(() => {
     async function fetchStats() {
       try {
-        const [resData, cancelData] = await Promise.all([
+        const todayJst = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10)
+        const week = new Date(Date.now() + 9*60*60*1000 + 7*86400000).toISOString().slice(0,10)
+
+        const [resData, cancelData, upcomingDatesResult] = await Promise.all([
           fetch('/api/admin/reservations', { headers: getAdminHeaders() }).then(r => r.json()),
           fetch('/api/admin/cancellations', { headers: getAdminHeaders() }).then(r => r.json()).catch(() => ({ requests: [] })),
+          supabase
+            .from('departure_dates')
+            .select('id, date, departure_notified_at, weather_notified_at, thankyou_notified_at, plans(id)')
+            .gte('date', todayJst)
+            .lte('date', week)
+            .order('date'),
         ])
         const reservations: any[] = resData.reservations || []
         const allCancels: any[] = cancelData.requests || []
@@ -33,6 +44,21 @@ export default function AdminDashboard() {
           upcomingDates: upcomingDateSet.size,
         })
         setRecent(reservations.slice(0, 5))
+
+        // 7日間ウィジェット用データを構築
+        const upcomingDates = upcomingDatesResult.data || []
+        const schedule = upcomingDates.map((d: any) => {
+          const planIds = (d.plans || []).map((p: any) => p.id)
+          const dateReservations = reservations.filter((r: any) => planIds.includes(r.plan_id))
+          const resCount = dateReservations.length
+          const memberCount = dateReservations.reduce((s: number, r: any) => s + (r.total_members || 0), 0)
+          return {
+            ...d,
+            resCount,
+            memberCount,
+          }
+        })
+        setUpcomingSchedule(schedule)
       } catch {
         // fetch失敗時はサイレントに処理
       } finally {
@@ -87,6 +113,64 @@ export default function AdminDashboard() {
           <div className="text-gray-400 text-xs mt-0.5">全予約を確認</div>
         </button>
       </div>
+      {/* 今後7日間の出船予定 */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1 h-4 bg-gold-500 rounded-full" />
+        <h3 className="font-bold text-sm text-navy-700 font-serif">今後7日間の出船予定</h3>
+      </div>
+      {loading ? (
+        <div className="text-center text-gray-400 py-4 text-sm mb-4">読み込み中...</div>
+      ) : upcomingSchedule.length === 0 ? (
+        <div className="bg-white rounded-xl border border-dashed border-gray-200 text-center py-6 text-gray-400 text-sm mb-4">
+          今後7日間の出船予定はありません
+        </div>
+      ) : (
+        <div className="space-y-2 mb-4">
+          {upcomingSchedule.map((d) => {
+            const todayJst = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10)
+            const tomorrowJst = new Date(Date.now() + 9*60*60*1000 + 86400000).toISOString().slice(0,10)
+            const dayLabel = d.date === todayJst ? '今日' : d.date === tomorrowJst ? '明日' : ''
+            return (
+              <div key={d.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {dayLabel && (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          dayLabel === '今日' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                        }`}>{dayLabel}</span>
+                      )}
+                      <span className="font-bold text-sm text-navy-700">{formatDateJa(d.date)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-2">
+                      予約 {d.resCount}件 / 計 {d.memberCount}名
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                        d.departure_notified_at
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-gray-50 text-gray-400 border-gray-200'
+                      }`}>
+                        {d.departure_notified_at ? '⚓✓ 出航通知済' : '⚓ 出航通知未送信'}
+                      </span>
+                      {d.weather_notified_at && (
+                        <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-orange-50 text-orange-700 border-orange-200">
+                          ⛈✓ 天候キャンセル済
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => router.push('/admin/dates')}
+                    className="text-xs bg-navy-700 text-white px-3 py-1.5 rounded-lg font-bold shrink-0 hover:bg-navy-800 transition-colors">
+                    管理する
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
       {/* 最近の予約 */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1 h-4 bg-gold-500 rounded-full" />
