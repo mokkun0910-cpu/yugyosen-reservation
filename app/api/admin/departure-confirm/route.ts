@@ -99,11 +99,11 @@ export async function POST(req: NextRequest) {
     let notified = 0
     const errors: string[] = []
 
-    for (const target of allTargets) {
-      const plan = (plans as any[]).find((p) => p.id === target.planId)
-      const departureTime = plan?.departure_time?.slice(0, 5) || ''
-
-      const message = `⚓ 出航決定のお知らせ
+    const sendResults = await Promise.allSettled(
+      allTargets.map((target) => {
+        const plan = (plans as any[]).find((p) => p.id === target.planId)
+        const departureTime = plan?.departure_time?.slice(0, 5) || ''
+        const message = `⚓ 出航決定のお知らせ
 
 【日程】${dateLabel}
 【出船時刻】${departureTime}
@@ -113,13 +113,16 @@ export async function POST(req: NextRequest) {
 
 当日皆様のご乗船をお待ちしております。
 🎣 ${BOAT_NAME}`
-
-      try {
-        const ok = await pushLine(lineToken, target.userId, message)
-        if (ok) notified++
-        else errors.push(`送信失敗(${target.userId.slice(0, 8)}…)`)
-      } catch (e: any) {
-        errors.push(`送信例外: ${e?.message}`)
+        return pushLine(lineToken, target.userId, message)
+      })
+    )
+    for (let i = 0; i < sendResults.length; i++) {
+      const result = sendResults[i]
+      if (result.status === 'fulfilled') {
+        if (result.value) notified++
+        else errors.push(`送信失敗(${allTargets[i].userId.slice(0, 8)}…)`)
+      } else {
+        errors.push(`送信例外: ${(result as PromiseRejectedResult).reason?.message}`)
       }
     }
 

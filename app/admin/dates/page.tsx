@@ -28,6 +28,9 @@ export default function AdminDatesPage() {
   const [thankTarget, setThankTarget] = useState<any | null>(null)
   const [thankLoading, setThankLoading] = useState(false)
   const [thankResult, setThankResult] = useState<any | null>(null)
+  const [weatherConfirmed, setWeatherConfirmed] = useState(false)
+  const [departureResend, setDepartureResend] = useState(false)
+  const [thankResend, setThankResend] = useState(false)
   const [copySource, setCopySource] = useState<any | null>(null)
   const [copyTargetDate, setCopyTargetDate] = useState('')
   const [copyLoading, setCopyLoading] = useState(false)
@@ -333,16 +336,19 @@ export default function AdminDatesPage() {
                   {/* LINE通知ボタン */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <button onClick={() => { setDepartureTarget(d); setDepartureResult(null) }}
-                      className="flex flex-col items-center justify-center gap-0.5 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                      className={`flex flex-col items-center justify-center gap-0.5 text-white text-xs font-bold py-2.5 rounded-xl ${d.departure_notified_at ? 'bg-blue-400' : 'bg-blue-600'}`}>
                       <span>⚓</span><span>出航決定</span>
+                      {d.departure_notified_at && <span className="text-xs opacity-80">✓送信済</span>}
                     </button>
                     <button onClick={() => { setWeatherTarget(d); setWeatherResult(null) }}
-                      className="flex flex-col items-center justify-center gap-0.5 bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl">
+                      className={`flex flex-col items-center justify-center gap-0.5 text-white text-xs font-bold py-2.5 rounded-xl ${d.weather_notified_at ? 'bg-orange-300' : 'bg-orange-500'}`}>
                       <span>⛈️</span><span>天候不良</span>
+                      {d.weather_notified_at && <span className="text-xs opacity-80">✓送信済</span>}
                     </button>
                     <button onClick={() => { setThankTarget(d); setThankResult(null) }}
-                      className="flex flex-col items-center justify-center gap-0.5 bg-green-600 text-white text-xs font-bold py-2.5 rounded-xl">
+                      className={`flex flex-col items-center justify-center gap-0.5 text-white text-xs font-bold py-2.5 rounded-xl ${d.thankyou_notified_at ? 'bg-green-400' : 'bg-green-600'}`}>
                       <span>🙏</span><span>お礼送信</span>
+                      {d.thankyou_notified_at && <span className="text-xs opacity-80">✓送信済</span>}
                     </button>
                   </div>
                   {/* サブ操作 */}
@@ -485,7 +491,21 @@ export default function AdminDatesPage() {
                                             <div>緊急連絡先：{m.emergency_contact_name}（{m.emergency_contact_phone}）</div>
                                           </div>
                                         ) : (
-                                          <div className="text-yellow-700">情報入力待ち</div>
+                                          <div className="text-yellow-700 space-y-1.5">
+                                            <div>情報入力待ち</div>
+                                            {m.input_token && (
+                                              <button
+                                                onClick={() => {
+                                                  const url = `${window.location.origin}/member/${m.input_token}`
+                                                  navigator.clipboard.writeText(url)
+                                                  alert('入力リンクをコピーしました')
+                                                }}
+                                                className="text-xs bg-yellow-100 border border-yellow-300 px-2 py-1 rounded text-yellow-800 hover:bg-yellow-200"
+                                              >
+                                                📋 入力リンクをコピー
+                                              </button>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
                                     ))}
@@ -588,7 +608,7 @@ export default function AdminDatesPage() {
                   {departureResult.lineUsers === 0 && <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded p-2">LINEアプリ経由で予約されていないため送信できません。</p>}
                   {departureResult.errors?.length > 0 && <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{departureResult.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}</div>}
                 </div>
-                <button onClick={() => setDepartureTarget(null)} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
+                <button onClick={() => { setDepartureTarget(null); setDepartureResend(false) }} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
               </>
             ) : (
               <>
@@ -601,9 +621,18 @@ export default function AdminDatesPage() {
                   <p className="mt-1">明日の出航が決定いたしました。ご予約いただきありがとうございます。</p>
                   <p className="mt-1">当日皆様のご乗船をお待ちしております。🎣 遊漁船 高喜丸</p>
                 </div>
+                {departureTarget?.departure_notified_at && (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4 text-xs text-yellow-800">
+                    <p className="font-bold mb-2">⚠️ この日程はすでに出航決定通知が送信済みです。再送すると重複して届きます。</p>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={departureResend} onChange={e => setDepartureResend(e.target.checked)} className="w-4 h-4" />
+                      <span>それでも再送する</span>
+                    </label>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <button onClick={() => setDepartureTarget(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
-                  <button onClick={handleDepartureConfirm} disabled={departureLoading} className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold disabled:opacity-50">{departureLoading ? '送信中...' : '送信する'}</button>
+                  <button onClick={() => { setDepartureTarget(null); setDepartureResend(false) }} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
+                  <button onClick={handleDepartureConfirm} disabled={departureLoading || (!!departureTarget?.departure_notified_at && !departureResend)} className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold disabled:opacity-50">{departureLoading ? '送信中...' : '送信する'}</button>
                 </div>
               </>
             )}
@@ -626,7 +655,7 @@ export default function AdminDatesPage() {
                   </div>
                   {weatherResult.errors?.length > 0 && <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{weatherResult.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}</div>}
                 </div>
-                <button onClick={() => setWeatherTarget(null)} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
+                <button onClick={() => { setWeatherTarget(null); setWeatherConfirmed(false) }} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
               </>
             ) : (
               <>
@@ -639,9 +668,16 @@ export default function AdminDatesPage() {
                   <p className="mt-1">天候不良のため当日の出船を中止とさせていただきます。</p>
                   <p className="mt-1">またのご予約をお待ちしております。🎣 遊漁船 高喜丸</p>
                 </div>
+                <div className="bg-red-50 border border-red-300 rounded-lg p-3 mb-4 text-xs text-red-800">
+                  <p className="font-bold mb-2">⚠️ この操作は取り消せません。全予約がキャンセルされ、乗船名簿のデータも削除されます。</p>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={weatherConfirmed} onChange={e => setWeatherConfirmed(e.target.checked)} className="w-4 h-4" />
+                    <span>上記を理解しました</span>
+                  </label>
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setWeatherTarget(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
-                  <button onClick={handleWeatherCancel} disabled={weatherLoading} className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold disabled:opacity-50">{weatherLoading ? '送信中...' : '送信する'}</button>
+                  <button onClick={() => { setWeatherTarget(null); setWeatherConfirmed(false) }} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
+                  <button onClick={handleWeatherCancel} disabled={weatherLoading || !weatherConfirmed} className="flex-1 py-2 rounded-lg bg-orange-500 text-white text-sm font-bold disabled:opacity-50">{weatherLoading ? '送信中...' : '送信する'}</button>
                 </div>
               </>
             )}
@@ -664,7 +700,7 @@ export default function AdminDatesPage() {
                   </div>
                   {thankResult.errors?.length > 0 && <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{thankResult.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}</div>}
                 </div>
-                <button onClick={() => setThankTarget(null)} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
+                <button onClick={() => { setThankTarget(null); setThankResend(false) }} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
               </>
             ) : (
               <>
@@ -675,9 +711,18 @@ export default function AdminDatesPage() {
                   <p>昨日はご乗船いただきありがとうございました！🎣</p>
                   <p className="mt-1">またのご乗船をお待ちしております。遊漁船 高喜丸</p>
                 </div>
+                {thankTarget?.thankyou_notified_at && (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4 text-xs text-yellow-800">
+                    <p className="font-bold mb-2">⚠️ この日程はすでにお礼メッセージが送信済みです。再送すると重複して届きます。</p>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={thankResend} onChange={e => setThankResend(e.target.checked)} className="w-4 h-4" />
+                      <span>それでも再送する</span>
+                    </label>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <button onClick={() => setThankTarget(null)} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
-                  <button onClick={handleThankYou} disabled={thankLoading} className="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-bold disabled:opacity-50">{thankLoading ? '送信中...' : '送信する'}</button>
+                  <button onClick={() => { setThankTarget(null); setThankResend(false) }} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 font-medium">キャンセル</button>
+                  <button onClick={handleThankYou} disabled={thankLoading || (!!thankTarget?.thankyou_notified_at && !thankResend)} className="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-bold disabled:opacity-50">{thankLoading ? '送信中...' : '送信する'}</button>
                 </div>
               </>
             )}

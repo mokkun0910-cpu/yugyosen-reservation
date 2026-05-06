@@ -101,13 +101,17 @@ ${BOAT_NAME}`
     let notified = 0
     const errors: string[] = []
 
-    for (const userId of allLineIds) {
-      try {
-        const ok = await pushLine(lineToken, userId, message)
-        if (ok) notified++
-        else errors.push(`送信失敗(${userId.slice(0, 8)}…)`)
-      } catch (e: any) {
-        errors.push(`送信例外: ${e?.message}`)
+    const userIdArray = Array.from(allLineIds)
+    const sendResults = await Promise.allSettled(
+      userIdArray.map((userId) => pushLine(lineToken, userId, message))
+    )
+    for (let i = 0; i < sendResults.length; i++) {
+      const result = sendResults[i]
+      if (result.status === 'fulfilled') {
+        if (result.value) notified++
+        else errors.push(`送信失敗(${userIdArray[i].slice(0, 8)}…)`)
+      } else {
+        errors.push(`送信例外: ${(result as PromiseRejectedResult).reason?.message}`)
       }
     }
 
