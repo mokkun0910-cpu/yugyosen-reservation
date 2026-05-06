@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
             '緊急連絡先氏名': m?.is_completed ? (m.emergency_contact_name || '') : '',
             '緊急連絡先電話': m?.is_completed ? (m.emergency_contact_phone || '') : '',
             '入力状況': m?.is_completed ? '入力済み' : '未入力',
-            '料金': i === 0 && resRevenue > 0 ? resRevenue : '',
+            '料金': unitPrice > 0 ? unitPrice : '',
             ...notifyCols,
           })
         }

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // その日のプランIDを取得
   const { data: plans } = await db
     .from('plans')
-    .select('id, name, departure_time')
+    .select('id, name, departure_time, price')
     .eq('departure_date_id', dateId)
     .order('departure_time')
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const rows = [{
       '出船日': departureDate.date, '釣り物': '', '出船時刻': '', '予約番号': '',
       '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
-      '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '', '入力状況': '',
+      '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '', '入力状況': '', '料金': '',
     }]
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -101,6 +101,7 @@ export async function GET(req: NextRequest) {
     const plan = r.plans as any
     const members = (r.members as any[]) || []
     const totalMembers: number = r.total_members || members.length || 1
+    const unitPrice: number = plan?.price || 0
     const hasLine = !!r.line_user_id
 
     const notifyCols = {
@@ -127,6 +128,7 @@ export async function GET(req: NextRequest) {
           '緊急連絡先氏名': m.is_completed ? (m.emergency_contact_name || '') : '',
           '緊急連絡先電話': m.is_completed ? (m.emergency_contact_phone || '') : '',
           '入力状況': m.is_completed ? '入力済み' : '未入力',
+          '料金': unitPrice > 0 ? unitPrice : '',
           ...notifyCols,
         })
       }
@@ -147,6 +149,7 @@ export async function GET(req: NextRequest) {
           '緊急連絡先氏名': '',
           '緊急連絡先電話': '',
           '入力状況': '未入力',
+          '料金': unitPrice > 0 ? unitPrice : '',
           ...notifyCols,
         })
       }
@@ -158,7 +161,7 @@ export async function GET(req: NextRequest) {
       '出船日': date, '釣り物': '', '出船時刻': '', '予約番号': '',
       '代表者氏名': '', '代表者電話': '', '乗船者No': '', '乗船者氏名': '',
       '生年月日': '', '住所': '', '電話番号': '', '緊急連絡先氏名': '', '緊急連絡先電話': '',
-      '入力状況': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
+      '入力状況': '', '料金': '', '⚓出航決定通知': '', '⛈天候不良通知': '', '🙏お礼通知': '',
     })
   }
 
@@ -182,6 +185,7 @@ export async function GET(req: NextRequest) {
     { wch: 14 }, // 緊急連絡先氏名
     { wch: 16 }, // 緊急連絡先電話
     { wch: 10 }, // 入力状況
+    { wch: 12 }, // 料金
     { wch: 20 }, // ⚓出航決定通知
     { wch: 20 }, // ⛈天候不良通知
     { wch: 20 }, // 🙏お礼通知
