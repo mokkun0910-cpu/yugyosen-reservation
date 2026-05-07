@@ -13,6 +13,10 @@ function ReserveFormContent() {
   const lineUserIdFromStorage = typeof window !== 'undefined'
     ? (sessionStorage.getItem('liff_uid') || '')
     : ''
+  // BUG7修正: プロフィール取得にはアクセストークンで本人確認を行う
+  const liffTokenFromStorage = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('liff_token') || '')
+    : ''
 
   const [form, setForm] = useState({
     name: '',
@@ -41,8 +45,11 @@ function ReserveFormContent() {
   }
 
   useEffect(() => {
-    if (!lineUserIdFromStorage) return
-    fetch(`/api/user/profile?lineUserId=${encodeURIComponent(lineUserIdFromStorage)}`)
+    // BUG7修正: アクセストークンがある場合のみ取得（本人確認をサーバーで実施）
+    if (!liffTokenFromStorage) return
+    fetch('/api/user/profile', {
+      headers: { Authorization: `Bearer ${liffTokenFromStorage}` },
+    })
       .then(r => r.json())
       .then(data => {
         if (data.found) {
@@ -65,7 +72,7 @@ function ReserveFormContent() {
         }
       })
       .catch(() => {})
-  }, [lineUserIdFromStorage])
+  }, [liffTokenFromStorage])
 
   const isLinked = !!lineUserIdFromStorage
 

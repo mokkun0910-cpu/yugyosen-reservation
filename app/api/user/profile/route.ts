@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
+// BUG7修正: LIFFアクセストークンをLINE APIで検証し、本人のみプロフィールを取得可能にする
+// （以前はlineUserIdをクエリパラメータで受け取っていたため、誰でも他人のPIIを取得できた）
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const lineUserId = searchParams.get('lineUserId')
+  const authHeader = req.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
-  if (!lineUserId) {
-    return NextResponse.json({ error: 'lineUserId is required' }, { status: 400 })
+  if (!token) {
+    return NextResponse.json({ found: false })
   }
 
-  const supabase = createServerClient()
+  // LINE APIでアクセストークンを検証し、実際のuserIdを取得
+  const lineRes = await fetch('https://api.line.me/v2/profile', {
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => null)
 
+  if (!lineRes || !lineRes.ok) {
+    return NextResponse.json({ found: false })
+  }
+
+  const lineProfile = await lineRes.json().catch(() => null)
+  const lineUserId: string | undefined = lineProfile?.userId
+
+  if (!lineUserId) {
+    return NextResponse.json({ found: false })
+  }
+
+  // 検証済みのuserIdでDBを検索
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('address_book')
     .select('name, furigana, phone, birth_date, address, emergency_contact_name, emergency_contact_phone')

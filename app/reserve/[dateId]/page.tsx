@@ -18,6 +18,9 @@ async function initLiff(): Promise<string> {
     if (liff.isInClient() && liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       cachedLineUserId = profile.userId
+      // BUG7修正: プロフィールAPI認証用にアクセストークンも保存
+      const token = liff.getAccessToken()
+      if (token) sessionStorage.setItem('liff_token', token)
       return cachedLineUserId
     }
   } catch {
