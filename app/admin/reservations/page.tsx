@@ -13,6 +13,44 @@ export default function AdminReservationsPage() {
   const [loading, setLoading] = useState(true)
   const initializedRef = useRef(false)
   const [cancelling, setCancelling] = useState<string | null>(null)
+  const [editingResId, setEditingResId] = useState<string | null>(null)
+  const [editResForm, setEditResForm] = useState({ representative_name: '', representative_furigana: '', representative_phone: '' })
+  const [editResError, setEditResError] = useState('')
+  const [savingRes, setSavingRes] = useState(false)
+
+  function startEditRes(r: any) {
+    setEditingResId(r.id)
+    setEditResForm({
+      representative_name: r.representative_name || '',
+      representative_furigana: r.representative_furigana || '',
+      representative_phone: r.representative_phone || '',
+    })
+    setEditResError('')
+  }
+
+  async function handleSaveRes() {
+    if (!editingResId) return
+    setSavingRes(true)
+    setEditResError('')
+    try {
+      const res = await fetch('/api/admin/reservations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationId: editingResId, ...editResForm }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setEditResError(data.error || '更新に失敗しました。')
+        return
+      }
+      setEditingResId(null)
+      await load()
+    } catch {
+      setEditResError('通信エラーが発生しました。')
+    } finally {
+      setSavingRes(false)
+    }
+  }
 
   async function handleCancel(r: any) {
     const label = `${r.representative_name}（${r.reservation_number}）`
@@ -178,13 +216,70 @@ export default function AdminReservationsPage() {
                           {r.status === 'confirmed' ? '✓ 確定' : '⏳ 入力待ち'}
                         </span>
                         <button
+                          onClick={() => startEditRes(r)}
+                          className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-lg hover:bg-blue-100 transition-colors">
+                          ✏️ 修正
+                        </button>
+                        <button
                           onClick={() => handleCancel(r)}
                           disabled={cancelling === r.id}
                           className="text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50">
-                          {cancelling === r.id ? '処理中…' : '📞 キャンセル'}
+                          {cancelling === r.id ? '処理中…' : '🚫 キャンセル'}
                         </button>
                       </div>
                     </div>
+                    {/* 代表者情報修正フォーム */}
+                    {editingResId === r.id && (
+                      <div className="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+                        <div className="text-xs font-bold text-blue-700 mb-1">✏️ 代表者情報を修正</div>
+                        <div>
+                          <label className="text-xs text-gray-600">氏名</label>
+                          <input
+                            type="text"
+                            value={editResForm.representative_name}
+                            onChange={e => setEditResForm(f => ({ ...f, representative_name: e.target.value }))}
+                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600">フリガナ</label>
+                          <input
+                            type="text"
+                            value={editResForm.representative_furigana}
+                            onChange={e => setEditResForm(f => ({ ...f, representative_furigana: e.target.value }))}
+                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600">電話番号</label>
+                          <input
+                            type="tel"
+                            value={editResForm.representative_phone}
+                            onChange={e => setEditResForm(f => ({ ...f, representative_phone: e.target.value }))}
+                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
+                        {editResError && (
+                          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
+                            {editResError}
+                          </div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={handleSaveRes}
+                            disabled={savingRes}
+                            className="flex-1 text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
+                            {savingRes ? '保存中…' : '💾 保存'}
+                          </button>
+                          <button
+                            onClick={() => { setEditingResId(null); setEditResError('') }}
+                            disabled={savingRes}
+                            className="flex-1 text-xs bg-white text-gray-600 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                            キャンセル
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {/* LINE通知送信状況 */}
                     {(() => {
                       const dd = r.plans?.departure_dates

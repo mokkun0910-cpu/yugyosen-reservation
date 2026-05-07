@@ -271,3 +271,63 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ reservationNumber })
 }
+
+// 管理者による予約情報修正（電話番号・氏名など）
+export async function PATCH(req: NextRequest) {
+  const authError = await checkAdminAuth(req)
+  if (authError) return authError
+
+  const body = await req.json()
+  const { reservationId, representative_name, representative_furigana, representative_phone } = body
+
+  if (!reservationId) {
+    return NextResponse.json({ error: 'reservationIdが必要です。' }, { status: 400 })
+  }
+
+  const db = createServerClient()
+
+  // 予約の存在確認
+  const { data: reservation } = await db
+    .from('reservations')
+    .select('id, representative_phone, representative_name')
+    .eq('id', reservationId)
+    .neq('status', 'cancelled')
+    .single()
+
+  if (!reservation) {
+    return NextResponse.json({ error: '予約が見つかりません。' }, { status: 404 })
+  }
+
+  const payload: any = {}
+  if (representative_name) payload.representative_name = representative_name
+  if (representative_furigana !== undefined) payload.representative_furigana = representative_furigana || null
+  if (representative_phone) payload.representative_phone = representative_phone
+
+  if (Object.keys(payload).length === 0) {
+    return NextResponse.json({ error: '変更内容がありません。' }, { status: 400 })
+  }
+
+  const { error } = await db.from('reservations').update(payload).eq('id', reservationId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // アドレス帳も更新（電話番号が変わった場合は旧電話番号のレコードを更新）
+  const phoneToSearch = representative_phone || reservation.representative_phone
+  const { data: abEntry } = await db
+    .from('address_book')
+    .select('id')
+    .eq('phone', reservation.representative_phone)
+    .maybeSingle()
+
+  if (abEntry) {
+    const abPayload: any = {}
+    if (representative_name) abPayload.name = representative_name
+    if (representative_furigana !== undefined) abPayload.furigana = representative_furigana || null
+    if (representative_phone) abPayload.phone = representative_phone
+    await db.from('address_book').update(abPayload).eq('id', abEntry.id)
+  }
+
+  const { logAdminAction } = await import('@/lib/adminLog')
+  logAdminAction(req, 'edit_reservation', `予約ID: ${reservationId} 変更: ${JSON.stringify(payload)}`).catch(() => {})
+
+  return NextResponse.json({ ok: true })
+}
