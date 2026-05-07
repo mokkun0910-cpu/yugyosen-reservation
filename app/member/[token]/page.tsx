@@ -37,6 +37,29 @@ export default function MemberInputPage() {
     phone: '', emergency_contact_name: '', emergency_contact_phone: '',
   })
 
+  // 生年月日プルダウン用
+  const currentYear = new Date().getFullYear()
+  const birthYears = Array.from({ length: currentYear - 1919 }, (_, i) => currentYear - i)
+  const birthMonths = Array.from({ length: 12 }, (_, i) => i + 1)
+  function getBirthParts(dateStr: string) {
+    if (!dateStr) return { y: '', m: '', d: '' }
+    const [y, m, d] = dateStr.split('-')
+    return { y: y || '', m: m ? String(Number(m)) : '', d: d ? String(Number(d)) : '' }
+  }
+  function getDaysInMonth(year: string, month: string) {
+    if (!year || !month) return 31
+    return new Date(Number(year), Number(month), 0).getDate()
+  }
+  function handleBirthDate(y: string, m: string, d: string) {
+    if (y && m && d) {
+      const mm = m.padStart(2, '0')
+      const dd = d.padStart(2, '0')
+      setForm(prev => ({ ...prev, birth_date: `${y}-${mm}-${dd}` }))
+    } else {
+      setForm(prev => ({ ...prev, birth_date: '' }))
+    }
+  }
+
   useEffect(() => {
     async function init() {
       // トークン確認とLIFF初期化を並列実行
@@ -153,7 +176,39 @@ export default function MemberInputPage() {
           </div>
           <div>
             <label className="label">生年月日 <span className="text-red-500">*</span></label>
-            <input className="input-field" name="birth_date" type="date" value={form.birth_date} onChange={handleChange} />
+            <div className="flex gap-2">
+              <select
+                className="input-field flex-1"
+                value={getBirthParts(form.birth_date).y}
+                onChange={e => {
+                  const { m, d } = getBirthParts(form.birth_date)
+                  handleBirthDate(e.target.value, m, d)
+                }}>
+                <option value="">年</option>
+                {birthYears.map(y => <option key={y} value={String(y)}>{y}年</option>)}
+              </select>
+              <select
+                className="input-field w-24"
+                value={getBirthParts(form.birth_date).m}
+                onChange={e => {
+                  const { y, d } = getBirthParts(form.birth_date)
+                  handleBirthDate(y, e.target.value, d)
+                }}>
+                <option value="">月</option>
+                {birthMonths.map(m => <option key={m} value={String(m)}>{m}月</option>)}
+              </select>
+              <select
+                className="input-field w-24"
+                value={getBirthParts(form.birth_date).d}
+                onChange={e => {
+                  const { y, m } = getBirthParts(form.birth_date)
+                  handleBirthDate(y, m, e.target.value)
+                }}>
+                <option value="">日</option>
+                {Array.from({ length: getDaysInMonth(getBirthParts(form.birth_date).y, getBirthParts(form.birth_date).m) }, (_, i) => i + 1)
+                  .map(d => <option key={d} value={String(d)}>{d}日</option>)}
+              </select>
+            </div>
           </div>
           <div>
             <label className="label">住所 <span className="text-red-500">*</span></label>
