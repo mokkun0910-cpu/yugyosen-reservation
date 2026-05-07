@@ -13,42 +13,71 @@ export default function AdminReservationsPage() {
   const [loading, setLoading] = useState(true)
   const initializedRef = useRef(false)
   const [cancelling, setCancelling] = useState<string | null>(null)
-  const [editingResId, setEditingResId] = useState<string | null>(null)
-  const [editResForm, setEditResForm] = useState({ representative_name: '', representative_furigana: '', representative_phone: '' })
-  const [editResError, setEditResError] = useState('')
-  const [savingRes, setSavingRes] = useState(false)
 
-  function startEditRes(r: any) {
-    setEditingResId(r.id)
-    setEditResForm({
-      representative_name: r.representative_name || '',
-      representative_furigana: r.representative_furigana || '',
-      representative_phone: r.representative_phone || '',
-    })
-    setEditResError('')
+  // アドレス帳リンク
+  const [linkingResId, setLinkingResId] = useState<string | null>(null)
+  const [linkQ, setLinkQ] = useState('')
+  const [linkResults, setLinkResults] = useState<any[]>([])
+  const [linkSearching, setLinkSearching] = useState(false)
+  const [savingLink, setSavingLink] = useState(false)
+  const [linkError, setLinkError] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function openLink(r: any) {
+    setLinkingResId(r.id)
+    setLinkQ('')
+    setLinkResults([])
+    setLinkError('')
   }
 
-  async function handleSaveRes() {
-    if (!editingResId) return
-    setSavingRes(true)
-    setEditResError('')
+  function closeLink() {
+    setLinkingResId(null)
+    setLinkQ('')
+    setLinkResults([])
+    setLinkError('')
+  }
+
+  useEffect(() => {
+    if (!linkQ.trim()) { setLinkResults([]); return }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setLinkSearching(true)
+      try {
+        const res = await fetch(`/api/admin/address-book?q=${encodeURIComponent(linkQ)}&limit=10`)
+        const json = await res.json()
+        setLinkResults(json.data || [])
+      } finally {
+        setLinkSearching(false)
+      }
+    }, 300)
+  }, [linkQ])
+
+  async function handleSelectPerson(person: any) {
+    if (!linkingResId) return
+    setSavingLink(true)
+    setLinkError('')
     try {
       const res = await fetch('/api/admin/reservations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reservationId: editingResId, ...editResForm }),
+        body: JSON.stringify({
+          reservationId: linkingResId,
+          representative_name: person.name,
+          representative_furigana: person.furigana || '',
+          representative_phone: person.phone,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setEditResError(data.error || '更新に失敗しました。')
+        setLinkError(data.error || '更新に失敗しました。')
         return
       }
-      setEditingResId(null)
+      closeLink()
       await load()
     } catch {
-      setEditResError('通信エラーが発生しました。')
+      setLinkError('通信エラーが発生しました。')
     } finally {
-      setSavingRes(false)
+      setSavingLink(false)
     }
   }
 
@@ -83,7 +112,6 @@ export default function AdminReservationsPage() {
       return da < db ? -1 : da > db ? 1 : 0
     })
     setReservations(sorted)
-    // 初回ロード時のみ直近の出船日を自動展開
     if (!initializedRef.current && sorted.length > 0) {
       initializedRef.current = true
       const today = new Date().toISOString().slice(0, 10)
@@ -114,16 +142,12 @@ export default function AdminReservationsPage() {
     })
   }
 
-  // 日付ごとにグループ化
   const grouped: { date: string; items: any[] }[] = []
   for (const r of reservations) {
     const date = r.plans?.departure_dates?.date || '日程未設定'
     const group = grouped.find(g => g.date === date)
-    if (group) {
-      group.items.push(r)
-    } else {
-      grouped.push({ date, items: [r] })
-    }
+    if (group) group.items.push(r)
+    else grouped.push({ date, items: [r] })
   }
 
   const today = new Date().toISOString().slice(0, 10)
@@ -168,13 +192,10 @@ export default function AdminReservationsPage() {
 
         return (
           <div key={date} className="mb-4">
-            {/* 日付ヘッダー */}
             <button
               onClick={() => toggleDate(date)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl mb-2 transition-colors ${
-                isPast
-                  ? 'bg-gray-100 text-gray-500'
-                  : 'bg-navy-700 text-white'
+                isPast ? 'bg-gray-100 text-gray-500' : 'bg-navy-700 text-white'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -193,7 +214,6 @@ export default function AdminReservationsPage() {
               </span>
             </button>
 
-            {/* 予約リスト */}
             {isOpen && (
               <div className="space-y-2 pl-2">
                 {items.map((r) => (
@@ -216,9 +236,13 @@ export default function AdminReservationsPage() {
                           {r.status === 'confirmed' ? '✓ 確定' : '⏳ 入力待ち'}
                         </span>
                         <button
-                          onClick={() => startEditRes(r)}
-                          className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-lg hover:bg-blue-100 transition-colors">
-                          ✏️ 修正
+                          onClick={() => linkingResId === r.id ? closeLink() : openLink(r)}
+                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${
+                            linkingResId === r.id
+                              ? 'bg-gray-100 text-gray-500 border-gray-300'
+                              : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
+                          }`}>
+                          {linkingResId === r.id ? '✕ 閉じる' : '📋 予約者を変更'}
                         </button>
                         <button
                           onClick={() => handleCancel(r)}
@@ -228,58 +252,54 @@ export default function AdminReservationsPage() {
                         </button>
                       </div>
                     </div>
-                    {/* 代表者情報修正フォーム */}
-                    {editingResId === r.id && (
-                      <div className="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
-                        <div className="text-xs font-bold text-blue-700 mb-1">✏️ 代表者情報を修正</div>
-                        <div>
-                          <label className="text-xs text-gray-600">氏名</label>
-                          <input
-                            type="text"
-                            value={editResForm.representative_name}
-                            onChange={e => setEditResForm(f => ({ ...f, representative_name: e.target.value }))}
-                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-600">フリガナ</label>
-                          <input
-                            type="text"
-                            value={editResForm.representative_furigana}
-                            onChange={e => setEditResForm(f => ({ ...f, representative_furigana: e.target.value }))}
-                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-600">電話番号</label>
-                          <input
-                            type="tel"
-                            value={editResForm.representative_phone}
-                            onChange={e => setEditResForm(f => ({ ...f, representative_phone: e.target.value }))}
-                            className="w-full mt-0.5 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </div>
-                        {editResError && (
-                          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
-                            {editResError}
+
+                    {/* アドレス帳から予約者を選択 */}
+                    {linkingResId === r.id && (
+                      <div className="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-xl p-3">
+                        <div className="text-xs font-bold text-blue-700 mb-2">📋 アドレス帳から予約者を選択</div>
+                        <input
+                          type="text"
+                          value={linkQ}
+                          onChange={e => setLinkQ(e.target.value)}
+                          placeholder="名前・フリガナ・電話番号で検索..."
+                          autoFocus
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                        />
+                        {linkSearching && (
+                          <div className="text-xs text-gray-400 mt-2 text-center">検索中...</div>
+                        )}
+                        {!linkSearching && linkQ && linkResults.length === 0 && (
+                          <div className="text-xs text-gray-400 mt-2 text-center">該当する方が見つかりません</div>
+                        )}
+                        {linkResults.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {linkResults.map((person: any) => (
+                              <button
+                                key={person.id}
+                                onClick={() => handleSelectPerson(person)}
+                                disabled={savingLink}
+                                className="w-full text-left bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-50"
+                              >
+                                <div className="text-xs font-bold text-navy-700">
+                                  {person.name}
+                                  {person.furigana && <span className="font-normal text-gray-400 ml-1">（{person.furigana}）</span>}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">📞 {person.phone}</div>
+                              </button>
+                            ))}
                           </div>
                         )}
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            onClick={handleSaveRes}
-                            disabled={savingRes}
-                            className="flex-1 text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
-                            {savingRes ? '保存中…' : '💾 保存'}
-                          </button>
-                          <button
-                            onClick={() => { setEditingResId(null); setEditResError('') }}
-                            disabled={savingRes}
-                            className="flex-1 text-xs bg-white text-gray-600 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50">
-                            キャンセル
-                          </button>
-                        </div>
+                        {linkError && (
+                          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 mt-2">
+                            {linkError}
+                          </div>
+                        )}
+                        {savingLink && (
+                          <div className="text-xs text-blue-600 text-center mt-2">更新中...</div>
+                        )}
                       </div>
                     )}
+
                     {/* LINE通知送信状況 */}
                     {(() => {
                       const dd = r.plans?.departure_dates
