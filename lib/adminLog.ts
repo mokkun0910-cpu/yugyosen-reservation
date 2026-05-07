@@ -10,6 +10,7 @@ export type AdminAction =
   | 'reject_cancel'        // キャンセル申請 → 否認
   | 'departure_confirm'    // 出船確定通知送信
   | 'thank_you_send'       // お礼メッセージ送信
+  | 'edit_reservation'     // 予約代表者情報の修正
 
 function getClientIp(req: NextRequest): string {
   return (
