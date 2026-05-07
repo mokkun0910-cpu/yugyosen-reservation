@@ -147,6 +147,23 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'idが必要です。' }, { status: 400 })
 
   const db = createServerClient()
+
+  // 電話番号を変更する場合、他レコードとの重複を事前チェック
+  if (phone) {
+    const { data: duplicate } = await db
+      .from('address_book')
+      .select('id, name')
+      .eq('phone', phone)
+      .neq('id', id)
+      .maybeSingle()
+    if (duplicate) {
+      return NextResponse.json(
+        { error: `この電話番号は「${duplicate.name}」で既に登録されています。` },
+        { status: 400 }
+      )
+    }
+  }
+
   const payload: any = {}
   if (memo !== undefined) payload.memo = memo
   if (name) payload.name = name
@@ -158,7 +175,13 @@ export async function PATCH(req: NextRequest) {
   if (emergency_contact_phone !== undefined) payload.emergency_contact_phone = emergency_contact_phone || null
 
   const { error } = await db.from('address_book').update(payload).eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // 万が一DBレベルで一意制約違反が発生した場合も分かりやすいメッセージに変換
+    if (error.message.includes('unique constraint') || error.message.includes('duplicate key')) {
+      return NextResponse.json({ error: 'この電話番号は既に他の連絡先に登録されています。' }, { status: 400 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
 
