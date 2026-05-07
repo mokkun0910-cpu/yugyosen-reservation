@@ -32,6 +32,7 @@ type PersonCardProps = {
   isExpanded: boolean
   isEditing: boolean
   saving: boolean
+  editError: string
   onToggleExpand: () => void
   onStartEdit: () => void
   onCancelEdit: () => void
@@ -39,7 +40,7 @@ type PersonCardProps = {
   onDelete: () => void
 }
 function PersonCard({
-  p, isExpanded, isEditing, saving,
+  p, isExpanded, isEditing, saving, editError,
   onToggleExpand, onStartEdit, onCancelEdit, onSaveEdit, onDelete,
 }: PersonCardProps) {
   const history = p.history || []
@@ -110,6 +111,11 @@ function PersonCard({
               <input className="input-field" placeholder="例：常連さん・マダイ好き" value={form.memo}
                 onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} />
             </div>
+            {editError && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                ⚠️ {editError}
+              </p>
+            )}
             <div className="flex gap-2 pt-1">
               <button onClick={onCancelEdit}
                 className="flex-1 py-2 text-sm border border-gray-200 rounded-lg text-gray-600">
@@ -203,6 +209,7 @@ export default function AddressBookPage() {
   const [addForm, setAddForm] = useState<EditForm>({ ...emptyForm })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [editError, setEditError] = useState('')   // 編集保存時のエラー表示用
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   function getAdminHeaders(): Record<string, string> {
     return {
@@ -256,26 +263,45 @@ export default function AddressBookPage() {
     await load(searchQ)
   }
   async function handleSaveEdit(id: string, form: EditForm) {
+    setEditError('')
     setSaving(true)
-    const res = await fetch('/api/admin/address-book', {
-      method: 'PATCH',
-      headers: getAdminHeaders(),
-      body: JSON.stringify({ id, ...form }),
-    })
-    setSaving(false)
-    if (!res.ok) { alert('更新に失敗しました。'); return }
-    setEditingId(null)
-    await load(searchQ)
+    try {
+      const res = await fetch('/api/admin/address-book', {
+        method: 'PATCH',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ id, ...form }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 401) {
+          setEditError('セッションが切れました。ページを再読み込みしてください。')
+        } else {
+          setEditError(data.error || '更新に失敗しました。もう一度お試しください。')
+        }
+        return
+      }
+      setEditingId(null)
+      setEditError('')
+      await load(searchQ)
+    } catch {
+      setEditError('通信エラーが発生しました。ネットワーク接続を確認してください。')
+    } finally {
+      setSaving(false)
+    }
   }
   async function handleDelete(id: string, name: string) {
     if (!confirm(`「${name}」をアドレス帳から削除しますか？`)) return
-    const res = await fetch('/api/admin/address-book', {
-      method: 'DELETE',
-      headers: getAdminHeaders(),
-      body: JSON.stringify({ id }),
-    })
-    if (!res.ok) { alert('削除に失敗しました。'); return }
-    await load(searchQ)
+    try {
+      const res = await fetch('/api/admin/address-book', {
+        method: 'DELETE',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) { alert('削除に失敗しました。'); return }
+      await load(searchQ)
+    } catch {
+      alert('通信エラーが発生しました。')
+    }
   }
   const groupOrder = KANA_GROUPS.map(g => g.label).concat(['その他', 'ふりがな未登録'])
   const grouped = groupOrder.reduce((acc, label) => {
@@ -406,10 +432,11 @@ export default function AddressBookPage() {
                       p={p}
                       isExpanded={expandedId === p.id}
                       isEditing={editingId === p.id}
-                      saving={saving}
+                      saving={saving && editingId === p.id}
+                      editError={editingId === p.id ? editError : ''}
                       onToggleExpand={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                      onStartEdit={() => setEditingId(p.id)}
-                      onCancelEdit={() => setEditingId(null)}
+                      onStartEdit={() => { setEditingId(p.id); setEditError('') }}
+                      onCancelEdit={() => { setEditingId(null); setEditError('') }}
                       onSaveEdit={(form) => handleSaveEdit(p.id, form)}
                       onDelete={() => handleDelete(p.id, p.name)}
                     />
