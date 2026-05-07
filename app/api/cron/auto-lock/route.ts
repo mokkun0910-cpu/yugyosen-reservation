@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
 export async function GET(req: NextRequest) {
+  // BUG10修正: CRON_SECRETは常に必須（未設定の場合は503）
   const cronSecret = process.env.CRON_SECRET
-
-  // CRON_SECRETが設定されている場合のみ認証チェック
-  if (cronSecret) {
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error('[auto-lock] CRON_SECRET が未設定です。環境変数を設定してください。')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 })
+  }
+  const authHeader = req.headers.get('Authorization')
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {

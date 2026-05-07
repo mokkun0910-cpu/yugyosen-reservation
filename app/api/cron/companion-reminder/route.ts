@@ -3,12 +3,15 @@ import { createServerClient } from '@/lib/supabase'
 import { sendMemberInputReminder } from '@/lib/line'
 
 export async function GET(req: NextRequest) {
+  // BUG10修正: CRON_SECRETは常に必須（未設定の場合は503）
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error('[companion-reminder] CRON_SECRET が未設定です。環境変数を設定してください。')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 })
+  }
+  const authHeader = req.headers.get('Authorization')
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {

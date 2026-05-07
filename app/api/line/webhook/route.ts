@@ -30,6 +30,26 @@ export async function POST(req: NextRequest) {
   const events = body.events || []
 
   for (const event of events) {
+    // messageイベント：お客様からのテキストメッセージに自動返信
+    if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      await fetch('https://api.line.me/v2/bot/message/reply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify({
+          replyToken: event.replyToken,
+          messages: [{
+            type: 'text',
+            text: `メッセージありがとうございます！\n\nご予約・お問い合わせは下記をご利用ください。\n\n📅 オンライン予約\n${appUrl}\n\n📞 お電話でのお問い合わせはリッチメニューの「電話」からどうぞ。\n\nスタッフが確認次第、折り返しご連絡いたします。`,
+          }],
+        }),
+      }).catch(console.error)
+      continue
+    }
+
     // followイベント：新規登録 or ブロック解除
     if (event.type === 'follow') {
       const userId = event.source?.userId

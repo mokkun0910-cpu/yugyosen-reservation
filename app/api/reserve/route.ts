@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { createServerClient } from '@/lib/supabase'
 import { sendReservationPending, sendReservationConfirmed, sendCaptainNotification } from '@/lib/line'
-import { generateReservationNumber } from '@/lib/utils'
+import { generateReservationNumber, formatDateJa } from '@/lib/utils'
 import { upsertAddressBook } from '@/lib/addressBook'
 
 export async function POST(req: NextRequest) {
@@ -71,25 +72,28 @@ export async function POST(req: NextRequest) {
 
   if (resError) return NextResponse.json({ error: '予約の作成に失敗しました。' }, { status: 500 })
 
-  // 乗船者レコードを人数分作成
+  // 乗船者レコードを人数分作成（同行者にはinput_tokenを付与）
   const memberRecords = Array.from({ length: totalMembers }, () => ({
     reservation_id: reservation.id,
     is_completed: false,
+    input_token: crypto.randomUUID(), // BUG3修正: 全員にトークンを発行
   }))
   const { data: members } = await db.from('members').insert(memberRecords).select()
 
-  // 代表者の乗船情報を自動登録
-  if (members && members.length > 0 && representativeBirthDate) {
-    await db.from('members').update({
-      name: representativeName,
-      furigana: representativeFurigana || null,   // ← 修正: furigana追加
-      birth_date: representativeBirthDate,
-      address: representativeAddress,
-      phone: representativePhone,
-      emergency_contact_name: representativeEmergencyName,
-      emergency_contact_phone: representativeEmergencyPhone,
-      is_completed: true,
-    }).eq('id', members[0].id)
+  // 代表者の乗船情報を自動登録（情報が揃っていれば完了マーク）
+  if (members && members.length > 0) {
+    if (representativeBirthDate) {
+      await db.from('members').update({
+        name: representativeName,
+        furigana: representativeFurigana || null,
+        birth_date: representativeBirthDate,
+        address: representativeAddress,
+        phone: representativePhone,
+        emergency_contact_name: representativeEmergencyName,
+        emergency_contact_phone: representativeEmergencyPhone,
+        is_completed: true,
+      }).eq('id', members[0].id)
+    }
   }
 
   // アドレス帳に代表者情報を自動登録・更新
@@ -113,22 +117,25 @@ export async function POST(req: NextRequest) {
       .neq('id', planId)
   }
 
-  // 1名予約 かつ 代表者情報入力済みの場合は即確定
-  const companionMembers = representativeBirthDate ? (members || []).slice(1) : (members || [])
-  const hasCompanions = companionMembers.length > 0
+  // BUG2修正: 人数が1名かどうかで確定判断（birthdateの有無に依存しない）
+  const hasCompanions = totalMembers > 1
+  const companionMembers = (members || []).slice(1) // 同行者（代表者以外）
   if (!hasCompanions) {
     await db.from('reservations').update({ status: 'confirmed' }).eq('id', reservation.id)
   }
 
   // LINE通知（代表者へ）
+  // BUG11修正: dateをformatDateJaで日本語フォーマットに変換
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const rawDate = (plan.departure_dates as any).date
+  const formattedDate = rawDate ? formatDateJa(rawDate) : ''
   if (lineUserId) {
     if (!hasCompanions) {
       // 1名：予約確定メッセージ
       await sendReservationConfirmed(lineUserId, {
         reservationNumber,
         planName: plan.name,
-        date: (plan.departure_dates as any).date,
+        date: formattedDate,
         departureTime: plan.departure_time,
         totalMembers,
         appUrl,
@@ -139,7 +146,7 @@ export async function POST(req: NextRequest) {
       await sendReservationPending(lineUserId, {
         reservationNumber,
         planName: plan.name,
-        date: (plan.departure_dates as any).date,
+        date: formattedDate,
         departureTime: plan.departure_time,
         totalMembers,
         memberLinks,

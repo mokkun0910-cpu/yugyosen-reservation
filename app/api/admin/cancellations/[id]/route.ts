@@ -36,17 +36,15 @@ export async function POST(
     // 予約をキャンセル状態に
     await db.from('reservations').update({ status: 'cancelled' }).eq('id', reservation.id)
 
-    // 同プランの合計人数が0になったらプランロックを解除
-    const { data: remaining } = await db
-      .from('reservations')
-      .select('total_members')
-      .eq('plan_id', reservation.plan_id)
-      .neq('status', 'cancelled')
-    const total = (remaining || []).reduce((sum: number, r: any) => sum + r.total_members, 0)
-    if (total === 0) {
-      const { data: plan } = await db.from('plans').select('departure_date_id').eq('id', reservation.plan_id).single()
-      if (plan) {
-        await db.from('plans').update({ is_locked: false }).eq('departure_date_id', plan.departure_date_id)
+    // BUG6修正: 同日の各プランを個別にチェックし、予約0のプランのみロック解除
+    const { data: cancelledPlan } = await db.from('plans').select('departure_date_id').eq('id', reservation.plan_id).single()
+    if (cancelledPlan) {
+      const { data: allPlansOnDay } = await db.from('plans').select('id').eq('departure_date_id', cancelledPlan.departure_date_id)
+      for (const p of allPlansOnDay || []) {
+        const { data: planRes } = await db.from('reservations').select('id').eq('plan_id', p.id).neq('status', 'cancelled')
+        if (!planRes || planRes.length === 0) {
+          await db.from('plans').update({ is_locked: false }).eq('id', p.id)
+        }
       }
     }
     // LINE通知

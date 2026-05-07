@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
+// BUG8修正: キャンセルAPIと同じ電話番号バリアント処理を追加
+function toHalf(str: string): string {
+  return str
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[－−‐―]/g, '-')
+}
+function toFull(str: string): string {
+  return str
+    .replace(/[0-9]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xFEE0))
+    .replace(/-/g, '－')
+}
+function phoneVariants(input: string): string[] {
+  const half = toHalf(input.trim())
+  const digits = half.replace(/\D/g, '')
+  const variants = new Set<string>([input.trim(), half, digits, toFull(digits)])
+  if (digits.length === 11) {
+    const fmt = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`
+    variants.add(fmt)
+    variants.add(toFull(fmt))
+  } else if (digits.length === 10) {
+    const fmt = `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`
+    variants.add(fmt)
+    variants.add(toFull(fmt))
+  }
+  return Array.from(variants)
+}
+
 // 電話番号で予約を検索して返す
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -11,11 +38,12 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createServerClient()
+  const phones = phoneVariants(phone)
 
   const { data: reservations } = await db
     .from('reservations')
     .select('id, reservation_number, representative_name, representative_furigana, representative_phone, total_members, status, plan_id')
-    .eq('representative_phone', phone)
+    .in('representative_phone', phones)
     .neq('status', 'cancelled')
     .order('created_at', { ascending: false })
 
@@ -107,14 +135,18 @@ export async function PATCH(req: NextRequest) {
         Array.from({ length: addCount }, () => ({ reservation_id: reservationId, is_completed: false }))
       )
     } else if (totalMembers < reservation.total_members) {
-      // 未入力の乗船者を末尾から削除
+      // BUG9修正: 未入力→入力済みの順で削除（必要数を確保する）
       const { data: members } = await db
         .from('members').select('id, is_completed')
         .eq('reservation_id', reservationId).order('id', { ascending: false })
-      const toDelete = (members || [])
-        .filter((m: any) => !m.is_completed)
-        .slice(0, reservation.total_members - totalMembers)
-        .map((m: any) => m.id)
+      const needed = reservation.total_members - totalMembers
+      // まず未入力から削除、足りなければ入力済みも削除
+      const incomplete = (members || []).filter((m: any) => !m.is_completed)
+      const complete = (members || []).filter((m: any) => m.is_completed)
+      const toDelete = [
+        ...incomplete.slice(0, needed),
+        ...complete.slice(0, Math.max(0, needed - incomplete.length)),
+      ].map((m: any) => m.id)
       if (toDelete.length > 0) {
         await db.from('members').delete().in('id', toDelete)
       }
