@@ -310,20 +310,48 @@ export async function PATCH(req: NextRequest) {
   const { error } = await db.from('reservations').update(payload).eq('id', reservationId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // アドレス帳も更新（電話番号が変わった場合は旧電話番号のレコードを更新）
-  const phoneToSearch = representative_phone || reservation.representative_phone
-  const { data: abEntry } = await db
-    .from('address_book')
-    .select('id')
-    .eq('phone', reservation.representative_phone)
-    .maybeSingle()
+  // アドレス帳も更新（電話番号が変わった場合は旧電話番号のレコードを処理）
+  if (representative_phone && representative_phone !== reservation.representative_phone) {
+    // 旧電話番号のアドレス帳エントリを取得
+    const { data: oldEntry } = await db
+      .from('address_book')
+      .select('id')
+      .eq('phone', reservation.representative_phone)
+      .maybeSingle()
 
-  if (abEntry) {
-    const abPayload: any = {}
-    if (representative_name) abPayload.name = representative_name
-    if (representative_furigana !== undefined) abPayload.furigana = representative_furigana || null
-    if (representative_phone) abPayload.phone = representative_phone
-    await db.from('address_book').update(abPayload).eq('id', abEntry.id)
+    if (oldEntry) {
+      // 新しい電話番号のエントリがすでに存在するか確認
+      const { data: newEntry } = await db
+        .from('address_book')
+        .select('id')
+        .eq('phone', representative_phone)
+        .neq('id', oldEntry.id)
+        .maybeSingle()
+
+      if (newEntry) {
+        // 正しい番号のエントリが既にある → 間違い番号で作られた重複エントリを削除
+        await db.from('address_book').delete().eq('id', oldEntry.id)
+      } else {
+        // 正しい番号のエントリがない → 旧エントリの番号・名前を更新
+        const abPayload: any = { phone: representative_phone }
+        if (representative_name) abPayload.name = representative_name
+        if (representative_furigana !== undefined) abPayload.furigana = representative_furigana || null
+        await db.from('address_book').update(abPayload).eq('id', oldEntry.id)
+      }
+    }
+  } else if (!representative_phone) {
+    // 電話番号変更なし・名前だけ更新
+    const { data: abEntry } = await db
+      .from('address_book')
+      .select('id')
+      .eq('phone', reservation.representative_phone)
+      .maybeSingle()
+    if (abEntry) {
+      const abPayload: any = {}
+      if (representative_name) abPayload.name = representative_name
+      if (representative_furigana !== undefined) abPayload.furigana = representative_furigana || null
+      await db.from('address_book').update(abPayload).eq('id', abEntry.id)
+    }
   }
 
   const { logAdminAction } = await import('@/lib/adminLog')
