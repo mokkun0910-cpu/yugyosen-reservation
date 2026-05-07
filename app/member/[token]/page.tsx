@@ -33,31 +33,21 @@ export default function MemberInputPage() {
   const [error, setError] = useState('')
   const [lineUserId, setLineUserId] = useState('')
   const [form, setForm] = useState({
-    name: '', furigana: '', birth_date: '', address: '',
+    name: '', furigana: '', address: '',
     phone: '', emergency_contact_name: '', emergency_contact_phone: '',
   })
+  // 生年月日は個別のstateで管理（一つ選んでも他がリセットされないように）
+  const [birthY, setBirthY] = useState('')
+  const [birthM, setBirthM] = useState('')
+  const [birthD, setBirthD] = useState('')
 
   // 生年月日プルダウン用
   const currentYear = new Date().getFullYear()
   const birthYears = Array.from({ length: currentYear - 1919 }, (_, i) => currentYear - i)
   const birthMonths = Array.from({ length: 12 }, (_, i) => i + 1)
-  function getBirthParts(dateStr: string) {
-    if (!dateStr) return { y: '', m: '', d: '' }
-    const [y, m, d] = dateStr.split('-')
-    return { y: y || '', m: m ? String(Number(m)) : '', d: d ? String(Number(d)) : '' }
-  }
   function getDaysInMonth(year: string, month: string) {
     if (!year || !month) return 31
     return new Date(Number(year), Number(month), 0).getDate()
-  }
-  function handleBirthDate(y: string, m: string, d: string) {
-    if (y && m && d) {
-      const mm = m.padStart(2, '0')
-      const dd = d.padStart(2, '0')
-      setForm(prev => ({ ...prev, birth_date: `${y}-${mm}-${dd}` }))
-    } else {
-      setForm(prev => ({ ...prev, birth_date: '' }))
-    }
   }
 
   useEffect(() => {
@@ -88,12 +78,19 @@ export default function MemberInputPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const required = ['name', 'furigana', 'birth_date', 'address', 'phone', 'emergency_contact_name', 'emergency_contact_phone']
+    const birth_date = (birthY && birthM && birthD)
+      ? `${birthY}-${birthM.padStart(2, '0')}-${birthD.padStart(2, '0')}`
+      : ''
+    const required: (keyof typeof form)[] = ['name', 'furigana', 'address', 'phone', 'emergency_contact_name', 'emergency_contact_phone']
     for (const key of required) {
-      if (!form[key as keyof typeof form]) {
+      if (!form[key]) {
         setError('すべての項目を入力してください。')
         return
       }
+    }
+    if (!birth_date) {
+      setError('生年月日を年・月・日すべて選択してください。')
+      return
     }
     setLoading(true)
     setError('')
@@ -102,7 +99,7 @@ export default function MemberInputPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // line_user_id が取得できていれば一緒に送信
-      body: JSON.stringify({ ...form, line_user_id: lineUserId || null }),
+      body: JSON.stringify({ ...form, birth_date, line_user_id: lineUserId || null }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error || 'エラーが発生しました。'); setLoading(false); return }
@@ -176,39 +173,37 @@ export default function MemberInputPage() {
           </div>
           <div>
             <label className="label">生年月日 <span className="text-red-500">*</span></label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <select
-                className="input-field flex-1"
-                value={getBirthParts(form.birth_date).y}
-                onChange={e => {
-                  const { m, d } = getBirthParts(form.birth_date)
-                  handleBirthDate(e.target.value, m, d)
-                }}>
-                <option value="">年</option>
+                className="input-field text-center text-base py-4"
+                value={birthY}
+                onChange={e => setBirthY(e.target.value)}>
+                <option value="">年▼</option>
                 {birthYears.map(y => <option key={y} value={String(y)}>{y}年</option>)}
               </select>
               <select
-                className="input-field w-24"
-                value={getBirthParts(form.birth_date).m}
-                onChange={e => {
-                  const { y, d } = getBirthParts(form.birth_date)
-                  handleBirthDate(y, e.target.value, d)
-                }}>
-                <option value="">月</option>
+                className="input-field text-center text-base py-4"
+                value={birthM}
+                onChange={e => setBirthM(e.target.value)}>
+                <option value="">月▼</option>
                 {birthMonths.map(m => <option key={m} value={String(m)}>{m}月</option>)}
               </select>
               <select
-                className="input-field w-24"
-                value={getBirthParts(form.birth_date).d}
-                onChange={e => {
-                  const { y, m } = getBirthParts(form.birth_date)
-                  handleBirthDate(y, m, e.target.value)
-                }}>
-                <option value="">日</option>
-                {Array.from({ length: getDaysInMonth(getBirthParts(form.birth_date).y, getBirthParts(form.birth_date).m) }, (_, i) => i + 1)
+                className="input-field text-center text-base py-4"
+                value={birthD}
+                onChange={e => setBirthD(e.target.value)}>
+                <option value="">日▼</option>
+                {Array.from({ length: getDaysInMonth(birthY, birthM) }, (_, i) => i + 1)
                   .map(d => <option key={d} value={String(d)}>{d}日</option>)}
               </select>
             </div>
+            {birthY && birthM && birthD ? (
+              <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-2 font-medium">
+                ✓ {birthY}年{birthM}月{birthD}日
+              </p>
+            ) : (birthY || birthM || birthD) ? (
+              <p className="text-xs text-gray-400 mt-1">年・月・日をすべて選択してください</p>
+            ) : null}
           </div>
           <div>
             <label className="label">住所 <span className="text-red-500">*</span></label>
