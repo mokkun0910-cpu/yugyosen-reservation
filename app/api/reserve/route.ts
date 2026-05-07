@@ -129,6 +129,8 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
   const rawDate = (plan.departure_dates as any).date
   const formattedDate = rawDate ? formatDateJa(rawDate) : ''
+  // BUG-NEW-A修正: departure_timeはDB上HH:MM:SS形式のためHH:MMに切り詰め
+  const formattedTime = plan.departure_time?.slice(0, 5) || ''
   if (lineUserId) {
     if (!hasCompanions) {
       // 1名：予約確定メッセージ
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest) {
         reservationNumber,
         planName: plan.name,
         date: formattedDate,
-        departureTime: plan.departure_time,
+        departureTime: formattedTime,
         totalMembers,
         appUrl,
       }).catch(console.error)
@@ -147,7 +149,7 @@ export async function POST(req: NextRequest) {
         reservationNumber,
         planName: plan.name,
         date: formattedDate,
-        departureTime: plan.departure_time,
+        departureTime: formattedTime,
         totalMembers,
         memberLinks,
         appUrl,

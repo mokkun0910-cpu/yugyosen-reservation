@@ -77,7 +77,7 @@ export async function POST(
         reservationNumber: res.reservation_number,
         planName: plan?.name || '',
         date: date ? formatDateJa(date) : '',
-        departureTime: plan?.departure_time || '',
+        departureTime: plan?.departure_time?.slice(0, 5) || '',
         totalMembers: res.total_members,
         appUrl: process.env.NEXT_PUBLIC_APP_URL || '',
       }).catch(console.error)
