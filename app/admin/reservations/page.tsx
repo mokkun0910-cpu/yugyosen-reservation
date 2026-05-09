@@ -65,6 +65,8 @@ export default function AdminReservationsPage() {
           representative_name: person.name,
           representative_furigana: person.furigana || '',
           representative_phone: person.phone,
+          // LINE IDがあれば引き継ぎ（通知を正しい人に届けるため）
+          ...(person.line_user_id ? { line_user_id: person.line_user_id } : {}),
         }),
       })
       const data = await res.json().catch(() => ({}))

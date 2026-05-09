@@ -278,7 +278,7 @@ export async function PATCH(req: NextRequest) {
   if (authError) return authError
 
   const body = await req.json()
-  const { reservationId, representative_name, representative_furigana, representative_phone } = body
+  const { reservationId, representative_name, representative_furigana, representative_phone, line_user_id } = body
 
   if (!reservationId) {
     return NextResponse.json({ error: 'reservationIdが必要です。' }, { status: 400 })
@@ -289,7 +289,7 @@ export async function PATCH(req: NextRequest) {
   // 予約の存在確認
   const { data: reservation } = await db
     .from('reservations')
-    .select('id, representative_phone, representative_name')
+    .select('id, representative_phone, representative_name, line_user_id')
     .eq('id', reservationId)
     .neq('status', 'cancelled')
     .single()
@@ -303,6 +303,22 @@ export async function PATCH(req: NextRequest) {
   if (representative_furigana !== undefined) payload.representative_furigana = representative_furigana || null
   if (representative_phone) payload.representative_phone = representative_phone
 
+  // LINE IDの引き継ぎ:
+  // フロントから直接渡された場合はそれを優先、
+  // なければ新電話番号のアドレス帳エントリから取得
+  if (line_user_id) {
+    payload.line_user_id = line_user_id
+  } else if (representative_phone && representative_phone !== reservation.representative_phone) {
+    const { data: newAbEntry } = await db
+      .from('address_book')
+      .select('line_user_id')
+      .eq('phone', representative_phone)
+      .maybeSingle()
+    if (newAbEntry?.line_user_id) {
+      payload.line_user_id = newAbEntry.line_user_id
+    }
+  }
+
   if (Object.keys(payload).length === 0) {
     return NextResponse.json({ error: '変更内容がありません。' }, { status: 400 })
   }
@@ -310,7 +326,7 @@ export async function PATCH(req: NextRequest) {
   const { error } = await db.from('reservations').update(payload).eq('id', reservationId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // アドレス帳も更新（電話番号が変わった場合は旧電話番号のレコードを処理）
+  // アドレス帳も更新
   if (representative_phone && representative_phone !== reservation.representative_phone) {
     // 旧電話番号のアドレス帳エントリを取得
     const { data: oldEntry } = await db
