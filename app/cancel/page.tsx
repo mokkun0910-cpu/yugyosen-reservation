@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { formatDateJa } from '@/lib/utils'
@@ -25,6 +25,20 @@ function CancelContent() {
   const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
 
   const [step, setStep] = useState<'phone' | 'select' | 'confirm' | 'done'>('phone')
+
+  // LIFFをページ読み込み時に1回だけ初期化
+  const liffRef = useRef<any>(null)
+  const [isInLiff, setIsInLiff] = useState(false)
+  useEffect(() => {
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+    if (!liffId) return
+    import('@line/liff').then(({ default: liff }) => {
+      liff.init({ liffId }).then(() => {
+        liffRef.current = liff
+        setIsInLiff(liff.isInClient())
+      }).catch(() => {})
+    }).catch(() => {})
+  }, [])
 
   const [phone, setPhone] = useState('')
   const [searching, setSearching] = useState(false)
@@ -110,17 +124,13 @@ function CancelContent() {
     setStep('done')
   }
 
-  async function closeWindow() {
-    try {
-      const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-      if (liffId) {
-        const liffModule = await import('@line/liff')
-        const liff = liffModule.default
-        await liff.init({ liffId })
-        if (liff.isInClient()) { liff.closeWindow(); return }
-      }
-    } catch {}
-    window.close()
+  function closeWindow() {
+    if (isInLiff && liffRef.current) {
+      liffRef.current.closeWindow()
+    } else {
+      // LIFF外（ブラウザ直接アクセス）の場合はトップへ戻る
+      router.push('/')
+    }
   }
 
   // 完了
