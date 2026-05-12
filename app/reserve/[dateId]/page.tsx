@@ -15,10 +15,10 @@ async function initLiff(): Promise<string> {
     const liffModule = await import('@line/liff')
     const liff = liffModule.default
     await liff.init({ liffId })
-    if (liff.isInClient() && liff.isLoggedIn()) {
+    if (liff.isLoggedIn()) {
       const profile = await liff.getProfile()
       cachedLineUserId = profile.userId
-      // BUG7修正: プロフィールAPI認証用にアクセストークンも保存
+      // プロフィールAPI認証用にアクセストークンも保存
       const token = liff.getAccessToken()
       if (token) sessionStorage.setItem('liff_token', token)
       return cachedLineUserId

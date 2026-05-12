@@ -36,11 +36,13 @@ export async function GET(req: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ found: false })
+    // アドレス帳未登録（初回予約）でも LINE ID だけは返す
+    return NextResponse.json({ found: false, line_user_id: lineUserId })
   }
 
   return NextResponse.json({
     found: true,
+    line_user_id: lineUserId,   // 検証済みLINE IDをフォームに返す
     name: data.name,
     furigana: data.furigana,
     phone: data.phone,

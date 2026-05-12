@@ -45,7 +45,7 @@ function ReserveFormContent() {
   }
 
   useEffect(() => {
-    // BUG7修正: アクセストークンがある場合のみ取得（本人確認をサーバーで実施）
+    // アクセストークンがある場合のみ取得（本人確認をサーバーで実施）
     if (!liffTokenFromStorage) return
     fetch('/api/user/profile', {
       headers: { Authorization: `Bearer ${liffTokenFromStorage}` },
@@ -61,6 +61,8 @@ function ReserveFormContent() {
             address: data.address || prev.address,
             emergency_contact_name: data.emergency_contact_name || prev.emergency_contact_name,
             emergency_contact_phone: data.emergency_contact_phone || prev.emergency_contact_phone,
+            // プロフィールAPIで検証済みのLINE IDをセット（sessionStorageにない場合も補完）
+            lineUserId: prev.lineUserId || data.line_user_id || prev.lineUserId,
           }))
           if (data.birth_date) {
             const [y, m, d] = data.birth_date.split('-')
@@ -69,12 +71,15 @@ function ReserveFormContent() {
             setBirthD(d ? String(Number(d)) : '')
           }
           setProfileLoaded(true)
+        } else if (data.line_user_id) {
+          // 過去の予約はないが、LINE IDだけは取得できた場合（初回予約）
+          setForm(prev => ({ ...prev, lineUserId: data.line_user_id }))
         }
       })
       .catch(() => {})
   }, [liffTokenFromStorage])
 
-  const isLinked = !!lineUserIdFromStorage
+  const isLinked = !!(lineUserIdFromStorage || form.lineUserId)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
