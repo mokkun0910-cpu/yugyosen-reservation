@@ -9,25 +9,16 @@ function ReserveFormContent() {
   const planId = searchParams.get('planId') || ''
   const planName = searchParams.get('planName') || ''
   const members = Number(searchParams.get('members') || 1)
-  // LINE User IDはURLではなくsessionStorageから取得（URLログへの露出防止）
-  const lineUserIdFromStorage = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('liff_uid') || '')
-    : ''
-  // BUG7修正: プロフィール取得にはアクセストークンで本人確認を行う
-  const liffTokenFromStorage = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('liff_token') || '')
-    : ''
 
   const [form, setForm] = useState({
     name: '',
     furigana: '',
     phone: '',
-    lineUserId: lineUserIdFromStorage,
+    lineUserId: '',
     address: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
   })
-  // 生年月日は個別のstateで管理（一つ選んでも他がリセットされないように）
   const [birthY, setBirthY] = useState('')
   const [birthM, setBirthM] = useState('')
   const [birthD, setBirthD] = useState('')
@@ -44,25 +35,52 @@ function ReserveFormContent() {
     return new Date(Number(year), Number(month), 0).getDate()
   }
 
+  // フォームページ自身でLIFFを初期化してトークンを取得（前ページの引き継ぎに依存しない）
   useEffect(() => {
-    // アクセストークンがある場合のみ取得（本人確認をサーバーで実施）
-    if (!liffTokenFromStorage) return
-    fetch('/api/user/profile', {
-      headers: { Authorization: `Bearer ${liffTokenFromStorage}` },
-    })
-      .then(r => r.json())
-      .then(data => {
+    async function initAndFetchProfile() {
+      let token = sessionStorage.getItem('liff_token') || ''
+      let uid   = sessionStorage.getItem('liff_uid')  || ''
+
+      // sessionStorageにトークンがない場合、このページでLIFFを初期化
+      if (!token) {
+        try {
+          const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+          if (liffId) {
+            const { default: liff } = await import('@line/liff')
+            await liff.init({ liffId })
+            if (liff.isLoggedIn()) {
+              const profile = await liff.getProfile()
+              uid   = profile.userId
+              token = liff.getAccessToken() || ''
+              if (token) sessionStorage.setItem('liff_token', token)
+              if (uid)   sessionStorage.setItem('liff_uid',   uid)
+            }
+          }
+        } catch {
+          // LIFF環境外（ブラウザ直アクセス）では無視
+        }
+      }
+
+      // LINE IDだけでもセット（プロフィールAPIが呼べなくても）
+      if (uid) setForm(prev => ({ ...prev, lineUserId: prev.lineUserId || uid }))
+
+      // プロフィールAPI（過去情報の自動入力 + LINE ID の確実な取得）
+      if (!token) return
+      try {
+        const data = await fetch('/api/user/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.json())
+
         if (data.found) {
           setForm(prev => ({
             ...prev,
+            lineUserId: prev.lineUserId || data.line_user_id || uid,
             name: data.name || prev.name,
             furigana: data.furigana || prev.furigana,
             phone: data.phone || prev.phone,
             address: data.address || prev.address,
             emergency_contact_name: data.emergency_contact_name || prev.emergency_contact_name,
             emergency_contact_phone: data.emergency_contact_phone || prev.emergency_contact_phone,
-            // プロフィールAPIで検証済みのLINE IDをセット（sessionStorageにない場合も補完）
-            lineUserId: prev.lineUserId || data.line_user_id || prev.lineUserId,
           }))
           if (data.birth_date) {
             const [y, m, d] = data.birth_date.split('-')
@@ -71,15 +89,18 @@ function ReserveFormContent() {
             setBirthD(d ? String(Number(d)) : '')
           }
           setProfileLoaded(true)
-        } else if (data.line_user_id) {
-          // 過去の予約はないが、LINE IDだけは取得できた場合（初回予約）
-          setForm(prev => ({ ...prev, lineUserId: data.line_user_id }))
+        } else if (data.line_user_id || uid) {
+          // 初回予約：過去データはないがLINE IDは取得済み
+          setForm(prev => ({ ...prev, lineUserId: prev.lineUserId || data.line_user_id || uid }))
         }
-      })
-      .catch(() => {})
-  }, [liffTokenFromStorage])
+      } catch {
+        // プロフィール取得失敗は無視（LINE IDはuidから確保済み）
+      }
+    }
+    initAndFetchProfile()
+  }, [])
 
-  const isLinked = !!(lineUserIdFromStorage || form.lineUserId)
+  const isLinked = !!form.lineUserId
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
