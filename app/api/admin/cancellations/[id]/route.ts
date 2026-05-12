@@ -48,23 +48,56 @@ export async function POST(
       }
     }
     // LINE通知
+    let lineNotified = false
+    let lineError = ''
+    const plan = reservation.plans as any
+    const date = plan?.departure_dates?.date
     if (reservation.line_user_id) {
-      const plan = reservation.plans as any
-      const date = plan?.departure_dates?.date
-      await sendCancelResult(reservation.line_user_id, true, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '').catch(console.error)
+      try {
+        await sendCancelResult(reservation.line_user_id, true, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '')
+        lineNotified = true
+      } catch (e: any) {
+        lineError = e?.message || 'LINE通知失敗'
+        console.error('[cancel approve] LINE通知エラー:', lineError)
+      }
     }
+
+    const reservation2 = (cancelReq.reservations as any)
+    const logDetail = `申請ID: ${id} 予約番号: ${reservation2?.reservation_number || ''}`
+    logAdminAction(req, 'approve_cancel', logDetail).catch(() => {})
+
+    return NextResponse.json({
+      ok: true,
+      lineNotified,
+      // LINE IDが未設定の場合は管理者に通知
+      ...(!reservation.line_user_id && { lineWarning: 'LINE IDが未設定のため通知を送信できませんでした。' }),
+      ...(lineError && { lineError }),
+    })
   } else {
     const reservation = cancelReq.reservations as any
+    let lineNotified = false
+    let lineError = ''
     if (reservation.line_user_id) {
       const plan = reservation.plans as any
       const date = plan?.departure_dates?.date
-      await sendCancelResult(reservation.line_user_id, false, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '').catch(console.error)
+      try {
+        await sendCancelResult(reservation.line_user_id, false, reservation.reservation_number, plan?.name || '', date ? formatDateJa(date) : '')
+        lineNotified = true
+      } catch (e: any) {
+        lineError = e?.message || 'LINE通知失敗'
+        console.error('[cancel reject] LINE通知エラー:', lineError)
+      }
     }
+
+    const logDetail = `申請ID: ${id} 予約番号: ${reservation?.reservation_number || ''}`
+    logAdminAction(req, 'reject_cancel', logDetail).catch(() => {})
+
+    return NextResponse.json({
+      ok: true,
+      lineNotified,
+      ...(!reservation.line_user_id && { lineWarning: 'LINE IDが未設定のため通知を送信できませんでした。' }),
+      ...(lineError && { lineError }),
+    })
   }
 
-  const reservation = (cancelReq.reservations as any)
-  const logDetail = `申請ID: ${id} 予約番号: ${reservation?.reservation_number || ''}`
-  logAdminAction(req, approved ? 'approve_cancel' : 'reject_cancel', logDetail).catch(() => {})
-
-  return NextResponse.json({ ok: true })
 }

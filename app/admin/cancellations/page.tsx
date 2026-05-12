@@ -25,10 +25,18 @@ export default function AdminCancellationsPage() {
         headers: getAdminHeaders(),
         body: JSON.stringify({ action }),
       })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
         alert(`${label}に失敗しました: ${data.error || '不明なエラー'}`)
         return
+      }
+      // LINE通知の結果をフィードバック
+      if (data.lineWarning) {
+        alert(`✅ ${label}しました。\n\n⚠️ ${data.lineWarning}\n管理者画面から「予約者を変更」でLINEアカウントを紐付けると次回から通知されます。`)
+      } else if (data.lineError) {
+        alert(`✅ ${label}しました。\n\n⚠️ LINE通知の送信に失敗しました。\nお客様に別途ご連絡ください。\n\nエラー: ${data.lineError}`)
+      } else if (data.lineNotified) {
+        // 通知成功は静かに完了（アラート不要）
       }
       await fetchRequests()
     } catch (e: any) {

@@ -12,6 +12,7 @@ async function sendMessage(to: string, messages: object[]) {
   if (!res.ok) {
     const err = await res.text()
     console.error('LINE送信エラー:', err)
+    throw new Error(`LINE送信失敗: ${res.status} ${err}`)
   }
 }
 
