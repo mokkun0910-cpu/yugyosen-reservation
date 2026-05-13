@@ -117,6 +117,18 @@ export async function sendCancelResult(
   await sendMessage(lineUserId, [{ type: 'text', text }])
 }
 
+// 管理者によるキャンセル通知（お客さんへ）
+export async function sendAdminCancelNotification(
+  lineUserId: string,
+  reservationNumber: string,
+  planName: string = '',
+  date: string = ''
+) {
+  const info = `【予約番号】${reservationNumber}${planName ? `\n【釣り物】${planName}` : ''}${date ? `\n【日程】${date}` : ''}`
+  const text = `❌ ご予約が管理者によりキャンセルされました。\n\n${info}\n\nご不明な点はお電話にてお問い合わせください。`
+  await sendMessage(lineUserId, [{ type: 'text', text }])
+}
+
 // リマインド通知（代表者へ：同行者未入力）
 export async function sendMemberInputReminder(
   lineUserId: string,

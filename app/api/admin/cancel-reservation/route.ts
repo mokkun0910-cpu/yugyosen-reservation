@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/adminLog'
+import { sendAdminCancelNotification } from '@/lib/line'
+import { formatDateJa } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   const authError = await checkAdminAuth(req)
@@ -12,10 +14,10 @@ export async function POST(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 予約情報を取得
+  // 予約情報を取得（LINE通知用に詳細も取得）
   const { data: reservation } = await db
     .from('reservations')
-    .select('id, plan_id, status')
+    .select('id, plan_id, status, line_user_id, reservation_number, plans(name, departure_dates(date))')
     .eq('id', reservationId)
     .single()
 
@@ -43,6 +45,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // LINE通知
+  let lineNotified = false
+  let lineError = ''
+  if (reservation.line_user_id) {
+    try {
+      const plan = reservation.plans as any
+      const date = plan?.departure_dates?.date
+      await sendAdminCancelNotification(
+        reservation.line_user_id,
+        reservation.reservation_number,
+        plan?.name || '',
+        date ? formatDateJa(date) : ''
+      )
+      lineNotified = true
+    } catch (e: any) {
+      lineError = e?.message || 'LINE通知失敗'
+      console.error('[admin_cancel] LINE通知エラー:', lineError)
+    }
+  }
+
   logAdminAction(req, 'admin_cancel', `予約ID: ${reservationId}`).catch(() => {})
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({
+    ok: true,
+    lineNotified,
+    ...(!reservation.line_user_id && { lineWarning: 'LINE IDが未設定のため通知を送信できませんでした。' }),
+    ...(lineError && { lineError }),
+  })
 }
