@@ -115,6 +115,11 @@ export default function AdminDatesPage() {
     const data = await res.json()
     setCancelling(null)
     if (!res.ok) { alert('キャンセルに失敗しました: ' + (data.error || '不明なエラー')); return }
+    if (data.lineWarning) {
+      alert(`✅ キャンセルしました。\n\n⚠️ ${data.lineWarning}`)
+    } else if (data.lineError) {
+      alert(`✅ キャンセルしました。\n\n⚠️ LINE通知の送信に失敗しました。お客様に別途ご連絡ください。\nエラー: ${data.lineError}`)
+    }
     await loadAll()
   }
   async function handleAddPlan(dateId: string) {

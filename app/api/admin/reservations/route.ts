@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     let query = db
       .from('reservations')
-      .select('id, reservation_number, representative_name, representative_phone, total_members, status, plan_id, created_at', { count: 'exact' })
+      .select('id, reservation_number, representative_name, representative_phone, line_user_id, total_members, status, plan_id, created_at', { count: 'exact' })
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
 

@@ -101,14 +101,15 @@ export async function PATCH(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 本人確認（現在の電話番号で照合）
-  const { data: reservation } = await db
+  // 本人確認（電話番号バリアントで照合）
+  const phones = phoneVariants(phone)
+  const { data: reservationRows } = await db
     .from('reservations')
     .select('id, representative_phone, total_members, plan_id')
     .eq('id', reservationId)
-    .eq('representative_phone', phone)
+    .in('representative_phone', phones)
     .neq('status', 'cancelled')
-    .single()
+  const reservation = reservationRows && reservationRows.length > 0 ? reservationRows[0] : null
 
   if (!reservation) {
     return NextResponse.json({ error: '予約が見つかりません。' }, { status: 404 })
