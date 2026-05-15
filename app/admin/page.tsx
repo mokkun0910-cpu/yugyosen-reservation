@@ -9,9 +9,13 @@ function getAdminHeaders(): Record<string, string> {
   }
 }
 
-function LineTestPanel() {
+function LineStatusPanel() {
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [open, setOpen] = useState(false)
+
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID || ''
+  const liffUrl = liffId ? `https://liff.line.me/${liffId}` : ''
 
   async function handleTest() {
     setTesting(true)
@@ -28,34 +32,80 @@ function LineTestPanel() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
         <div className="flex items-center gap-2">
-          <span className="text-base">🔔</span>
-          <span className="font-bold text-sm text-navy-700">船長へのLINE通知テスト</span>
+          <span className="text-base">🔧</span>
+          <span className="font-bold text-sm text-navy-700">LINE連携の状態確認</span>
         </div>
-        <button
-          onClick={handleTest}
-          disabled={testing}
-          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {testing ? '送信中...' : 'テスト送信'}
-        </button>
-      </div>
-      {result && (
-        <div className={`text-xs rounded-lg p-3 mt-2 ${result.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
-          {result.ok ? (
-            <p>✅ {result.message}</p>
-          ) : (
-            <>
-              <p className="font-bold mb-1">❌ {result.error || result.cause}</p>
-              {result.fix && <p className="mt-1 text-red-700">📋 対処法：{result.fix}</p>}
-              {result.lineApiResponse && <p className="mt-1 text-gray-500 break-all">LINE応答: {result.lineApiResponse}</p>}
-            </>
-          )}
+        <span className="text-gray-400 text-xs">{open ? '▲ 閉じる' : '▼ 開く'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-3">
+
+          {/* ① 船長通知テスト */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-gray-700">① 船長への予約通知テスト</p>
+              <button
+                onClick={handleTest}
+                disabled={testing}
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {testing ? '送信中...' : 'テスト送信'}
+              </button>
+            </div>
+            {result && (
+              <div className={`text-xs rounded-lg p-3 ${result.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                {result.ok ? (
+                  <p>✅ {result.message}</p>
+                ) : (
+                  <>
+                    <p className="font-bold mb-1">❌ {result.error || result.cause}</p>
+                    {result.fix && <p className="mt-1">📋 {result.fix}</p>}
+                    {result.lineApiResponse && <p className="mt-1 text-gray-500 break-all text-xs">LINE応答: {result.lineApiResponse}</p>}
+                  </>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">予約が入っても船長に通知が届かない場合に使用</p>
+          </div>
+
+          {/* ② LINEアカウント連携（LIFF）状態 */}
+          <div>
+            <p className="text-xs font-bold text-gray-700 mb-2">② LINEアカウント連携（LIFF）の状態</p>
+            {liffId ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-1">
+                <p>✅ LIFF ID が設定されています</p>
+                <p className="text-gray-500 break-all">LIFF ID: {liffId}</p>
+                <p className="text-gray-500 break-all">LIFF URL: {liffUrl}</p>
+                <p className="mt-1 font-medium">リッチメニューの「予約する」リンクがこのURLになっているか確認してください。</p>
+              </div>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800 space-y-1">
+                <p className="font-bold">❌ NEXT_PUBLIC_LIFF_ID が Vercel に設定されていません</p>
+                <p>Vercel → Settings → Environment Variables に追加してください。</p>
+              </div>
+            )}
+          </div>
+
+          {/* 対処法 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-2">
+            <p className="font-bold">📋 LINE連携が動かない場合のチェックリスト</p>
+            <ol className="space-y-1 list-decimal list-inside">
+              <li>上の「テスト送信」で船長通知が届くか確認する</li>
+              <li>船長が新しいLINE公式アカウントを友だち追加している（@993hvuum）</li>
+              <li>リッチメニューの予約ボタンが上記のLIFF URLになっている</li>
+              <li>お客様がLINEアプリ内から予約している（ブラウザ直アクセスでは連携不可）</li>
+            </ol>
+          </div>
+
         </div>
       )}
-      <p className="text-xs text-gray-400 mt-2">予約通知が届かない場合はこのボタンで原因を確認できます</p>
     </div>
   )
 }
@@ -141,8 +191,8 @@ export default function AdminDashboard() {
           <div className="text-xs text-gray-500 mt-1">未処理キャンセル</div>
         </div>
       </div>
-      {/* LINE通知テスト */}
-      <LineTestPanel />
+      {/* LINE連携状態確認 */}
+      <LineStatusPanel />
       {/* キャンセル警告 */}
       {stats.pendingCancellations > 0 && (
         <button onClick={() => router.push('/admin/cancellations')}
