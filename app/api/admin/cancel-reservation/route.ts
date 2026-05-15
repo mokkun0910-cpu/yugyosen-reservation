@@ -3,7 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/adminLog'
 import { sendAdminCancelNotification } from '@/lib/line'
-import { formatDateJa } from '@/lib/utils'
+import { formatDateJa, BOAT_NAME } from '@/lib/utils'
+import { sendSms } from '@/lib/sms'
 
 export async function POST(req: NextRequest) {
   const authError = await checkAdminAuth(req)
@@ -14,10 +15,10 @@ export async function POST(req: NextRequest) {
 
   const db = createServerClient()
 
-  // 予約情報を取得（LINE通知用に詳細も取得）
+  // 予約情報を取得（LINE通知・SMS通知用に詳細も取得）
   const { data: reservation } = await db
     .from('reservations')
-    .select('id, plan_id, status, line_user_id, reservation_number, plans(name, departure_dates(date))')
+    .select('id, plan_id, status, line_user_id, representative_phone, reservation_number, plans(name, departure_dates(date))')
     .eq('id', reservationId)
     .single()
 
@@ -48,15 +49,16 @@ export async function POST(req: NextRequest) {
   // LINE通知
   let lineNotified = false
   let lineError = ''
+  const plan = reservation.plans as any
+  const date = plan?.departure_dates?.date
+  const dateLabel = date ? formatDateJa(date) : ''
   if (reservation.line_user_id) {
     try {
-      const plan = reservation.plans as any
-      const date = plan?.departure_dates?.date
       await sendAdminCancelNotification(
         reservation.line_user_id,
         reservation.reservation_number,
         plan?.name || '',
-        date ? formatDateJa(date) : ''
+        dateLabel
       )
       lineNotified = true
     } catch (e: any) {
@@ -65,11 +67,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // SMS通知（LINE未連携時のみ）
+  let smsNotified = false
+  let smsError = ''
+  if (!reservation.line_user_id && reservation.representative_phone) {
+    const body = `【${BOAT_NAME}】予約をキャンセルしました\n№${reservation.reservation_number}\n${dateLabel}\n☎0940-62-1221`
+    const r = await sendSms(reservation.representative_phone, body).catch((e) => ({
+      ok: false,
+      error: e?.message || String(e),
+    }))
+    if (r.ok) smsNotified = true
+    else if (!(r as any).skipped) smsError = (r as any).error || 'SMS失敗'
+  }
+
   logAdminAction(req, 'admin_cancel', `予約ID: ${reservationId}`).catch(() => {})
   return NextResponse.json({
     ok: true,
     lineNotified,
-    ...(!reservation.line_user_id && { lineWarning: 'LINE IDが未設定のため通知を送信できませんでした。' }),
+    smsNotified,
+    ...(!reservation.line_user_id && !smsNotified && {
+      lineWarning: 'LINE未連携・SMS未送信。お客様にお電話でご連絡ください。',
+    }),
     ...(lineError && { lineError }),
+    ...(smsError && { smsError }),
   })
 }

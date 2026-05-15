@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { checkAdminAuth } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/adminLog'
+import { sendSmsBatch } from '@/lib/sms'
 
 /** LINE Push API に1件送信 */
 async function pushLine(token: string, to: string, text: string): Promise<boolean> {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { data: reservations, error: resError } = await db
       .from('reservations')
-      .select('id, line_user_id')
+      .select('id, line_user_id, representative_name, representative_phone, reservation_number')
       .in('plan_id', planIds)
       .neq('status', 'cancelled')
 
@@ -139,11 +140,40 @@ export async function POST(req: NextRequest) {
     await db.from('departure_dates').update({ weather_notified_at: new Date().toISOString() }).eq('id', dateId)
     logAdminAction(req, 'weather_cancel', `日程ID: ${dateId} (${dateLabel}) キャンセル数: ${(reservations as any[]).length} LINE通知: ${notified}`).catch(() => {})
 
+    // ─── SMS通知: LINE未連携の代表者へ ───
+    const smsBody = `【${BOAT_NAME}】天候不良のため${dateLabel}は出船中止です。\nまたのご予約をお待ちしております。\n☎0940-62-1221`
+    const nonLineReservations = (reservations as any[]).filter((r) => !r.line_user_id)
+    const smsTargets = nonLineReservations.filter((r) => r.representative_phone)
+    const smsResult = await sendSmsBatch(
+      smsTargets.map((r) => ({ to: r.representative_phone, body: smsBody }))
+    )
+
+    // ─── 通知が一切届かなかったお客様（要電話リスト） ───
+    // LINE未連携で、かつSMSが成功しなかった人をすべてリストアップ
+    const successPhones = new Set(
+      smsResult.items.filter((it) => it.ok).map((it) => it.to)
+    )
+    const unnotifiedCustomers: Array<{
+      reservationNumber: string
+      name: string
+      phone: string
+    }> = nonLineReservations
+      .filter((r) => !successPhones.has(r.representative_phone))
+      .map((r) => ({
+        reservationNumber: r.reservation_number,
+        name: r.representative_name,
+        phone: r.representative_phone || '(電話番号なし)',
+      }))
+
     return NextResponse.json({
       ok: true,
       cancelled: (reservations as any[]).length,
       notified,
       lineUsers: allLineIds.size,
+      smsNotified: smsResult.sent,
+      smsFailed: smsResult.failed,
+      smsSkipped: smsResult.skipped, // Twilio未設定時の件数
+      unnotifiedCustomers, // LINE未連携かつSMSも送れなかった人（要電話）
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (e: any) {

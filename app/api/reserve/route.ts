@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServerClient } from '@/lib/supabase'
 import { sendReservationPending, sendReservationConfirmed, sendCaptainNotification } from '@/lib/line'
-import { generateReservationNumber, formatDateJa } from '@/lib/utils'
+import { generateReservationNumber, formatDateJa, BOAT_NAME } from '@/lib/utils'
 import { upsertAddressBook } from '@/lib/addressBook'
+import { sendSms } from '@/lib/sms'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -155,6 +156,18 @@ export async function POST(req: NextRequest) {
         appUrl,
       }).catch(console.error)
     }
+  }
+
+  // SMS通知（LINE未連携の代表者へ）
+  // LINE連携済みの場合はLINEで通知済みのためSMS不要。
+  // 1名予約=確定、複数名=仮確定の旨を伝える。
+  if (!lineUserId) {
+    const smsBody = hasCompanions
+      ? `【${BOAT_NAME}】予約受付（仮）\n№${reservationNumber}\n${formattedDate} ${totalMembers}名\n同行者の入力で確定します\n☎0940-62-1221`
+      : `【${BOAT_NAME}】予約確定\n№${reservationNumber}\n${formattedDate} ${totalMembers}名\n☎0940-62-1221`
+    sendSms(representativePhone, smsBody).catch((e) =>
+      console.error('[reserve] SMS送信失敗:', e?.message || e)
+    )
   }
 
   // LINE通知（船長へ）

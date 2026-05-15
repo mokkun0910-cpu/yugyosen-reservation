@@ -227,12 +227,21 @@ export default function AdminReservationsPage() {
                   <div key={r.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="space-y-0.5">
-                        <div className="font-bold text-sm text-navy-700">{r.representative_name}</div>
+                        <div className="font-bold text-sm text-navy-700 flex items-center gap-1.5 flex-wrap">
+                          {r.representative_name}
+                          {!r.line_user_id && (
+                            <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
+                              ⚠️ LINE未連携
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-400">{r.reservation_number}</div>
                         <div className="text-xs text-gray-600">
                           🎣 {r.plans?.name}　⏰ {r.plans?.departure_time?.slice(0, 5)}　👥 {r.total_members}名
                         </div>
-                        <div className="text-xs text-gray-600">📞 {r.representative_phone}</div>
+                        <div className="text-xs text-gray-600">
+                          📞 <a href={`tel:${r.representative_phone}`} className="text-blue-600 hover:underline">{r.representative_phone}</a>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${

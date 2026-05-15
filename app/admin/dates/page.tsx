@@ -234,7 +234,16 @@ export default function AdminDatesPage() {
       const data = await res.json()
       setWeatherLoading(false)
       if (data.error) { alert('エラー: ' + data.error); return }
-      setWeatherResult({ cancelled: data.cancelled, notified: data.notified, lineUsers: data.lineUsers, errors: data.errors })
+      setWeatherResult({
+        cancelled: data.cancelled,
+        notified: data.notified,
+        lineUsers: data.lineUsers,
+        smsNotified: data.smsNotified,
+        smsFailed: data.smsFailed,
+        smsSkipped: data.smsSkipped,
+        unnotifiedCustomers: data.unnotifiedCustomers || [],
+        errors: data.errors,
+      })
       await loadAll()
     } catch (e: any) { setWeatherLoading(false); alert('通信エラー: ' + (e?.message || String(e))) }
   }
@@ -516,9 +525,18 @@ export default function AdminDatesPage() {
                               <div key={r.id} className="px-3 py-2.5">
                                 <div className="flex items-start justify-between mb-1.5">
                                   <div className="space-y-0.5">
-                                    <div className="font-bold text-sm text-navy-700">{r.representative_name}</div>
+                                    <div className="font-bold text-sm text-navy-700 flex items-center gap-1.5 flex-wrap">
+                                      {r.representative_name}
+                                      {!r.line_user_id && (
+                                        <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-full font-bold">
+                                          ⚠️ LINE未連携
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-gray-400">{r.reservation_number}</div>
-                                    <div className="text-xs text-gray-600">👥 {r.total_members}名　📞 {r.representative_phone}</div>
+                                    <div className="text-xs text-gray-600">
+                                      👥 {r.total_members}名　📞 <a href={`tel:${r.representative_phone}`} className="text-blue-600 hover:underline">{r.representative_phone}</a>
+                                    </div>
                                   </div>
                                   <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -737,16 +755,46 @@ export default function AdminDatesPage() {
             {weatherResult ? (
               <>
                 <div className="mb-4">
-                  <div className="text-center text-3xl mb-2">{weatherResult.notified > 0 ? '✅' : '⚠️'}</div>
+                  <div className="text-center text-3xl mb-2">{weatherResult.notified > 0 || weatherResult.smsNotified > 0 ? '✅' : '⚠️'}</div>
                   <h3 className="font-bold text-base mb-3 text-center">処理完了</h3>
                   <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
                     <div className="flex justify-between"><span className="text-gray-500">キャンセル件数</span><span className="font-bold">{weatherResult.cancelled}件</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">LINE登録済み</span><span className="font-bold">{weatherResult.lineUsers ?? '-'}名</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">送信成功</span><span className={`font-bold ${weatherResult.notified > 0 ? 'text-green-600' : 'text-red-500'}`}>{weatherResult.notified}名</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">LINE通知成功</span><span className={`font-bold ${weatherResult.notified > 0 ? 'text-green-600' : 'text-gray-400'}`}>{weatherResult.notified}名 / {weatherResult.lineUsers ?? '-'}名</span></div>
+                    {(weatherResult.smsNotified > 0 || weatherResult.smsFailed > 0 || weatherResult.smsSkipped > 0) && (
+                      <div className="flex justify-between"><span className="text-gray-500">SMS通知成功</span><span className={`font-bold ${weatherResult.smsNotified > 0 ? 'text-green-600' : 'text-gray-400'}`}>{weatherResult.smsNotified ?? 0}名</span></div>
+                    )}
                   </div>
                   {weatherResult.errors?.length > 0 && <div className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{weatherResult.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}</div>}
+
+                  {/* 要電話リスト：LINE未連携かつSMSも届かなかったお客様 */}
+                  {weatherResult.unnotifiedCustomers && weatherResult.unnotifiedCustomers.length > 0 && (
+                    <div className="mt-3 border-2 border-red-300 bg-red-50 rounded-lg p-3">
+                      <p className="font-bold text-sm text-red-700 mb-2">
+                        📞 要電話連絡（{weatherResult.unnotifiedCustomers.length}名）
+                      </p>
+                      <p className="text-xs text-red-600 mb-2">
+                        以下のお客様には通知が届いていません。お電話でご連絡をお願いします。
+                      </p>
+                      <div className="space-y-1.5">
+                        {weatherResult.unnotifiedCustomers.map((c: any, i: number) => (
+                          <div key={i} className="bg-white rounded-md p-2 flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-xs text-gray-800 truncate">{c.name}</div>
+                              <div className="text-xs text-gray-400">{c.reservationNumber}</div>
+                            </div>
+                            <a
+                              href={`tel:${c.phone}`}
+                              className="shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-700"
+                            >
+                              📞 {c.phone}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => { setWeatherTarget(null); setWeatherConfirmed(false) }} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
+                <button onClick={() => { setWeatherTarget(null); setWeatherConfirmed(false); setWeatherResult(null) }} className="w-full py-2 rounded-lg bg-navy-600 text-white text-sm font-bold">閉じる</button>
               </>
             ) : (
               <>
