@@ -225,12 +225,14 @@ export async function POST(req: NextRequest) {
         reservation.representative_phone === member.phone
 
       if (isRepresentative) {
-        // 残っている乗船者の中から最初の人を新代表者にする
+        // 残っている乗船者の中から新代表者を選ぶ
+        // BUG修正: is_completed=true に限定すると、未入力同行者しか残らない場合に
+        // 代表者が船に乗っていない人のまま孤立する。入力済を優先しつつ未入力でも昇格させる。
         const { data: remaining } = await db
           .from('members')
-          .select('id, name, phone')
+          .select('id, name, phone, is_completed')
           .eq('reservation_id', reservationId)
-          .eq('is_completed', true)
+          .order('is_completed', { ascending: false })
           .order('id', { ascending: true })
           .limit(1)
 
@@ -268,7 +270,9 @@ export async function POST(req: NextRequest) {
       }).catch(console.error)
     }
 
-    return NextResponse.json({ ok: true, newTotal })
+    // BUG修正: 最後の1名キャンセルは「全体キャンセル申請」扱い。
+    // フロント側で「完了」ではなく「申請受付」メッセージを表示させる。
+    return NextResponse.json({ ok: true, newTotal, pendingFullCancel: newTotal <= 0 })
   }
 
   return NextResponse.json({ error: '無効なリクエストです。' }, { status: 400 })

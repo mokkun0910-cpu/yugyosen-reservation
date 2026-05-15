@@ -121,6 +121,9 @@ function CancelContent() {
     setSubmitting(false)
 
     if (!res.ok) { setSubmitError(data.error || 'エラーが発生しました。'); return }
+    // BUG修正: 最後の1名の乗船者キャンセルはサーバー側で「全体キャンセル申請」扱いになる。
+    // 完了表示ではなく「申請受付（船長承認待ち）」表示にするため cancelType を full に切り替える。
+    if (data.pendingFullCancel) setCancelType('full')
     setStep('done')
   }
 

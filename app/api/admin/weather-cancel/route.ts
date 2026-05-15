@@ -88,6 +88,12 @@ export async function POST(req: NextRequest) {
     // 乗船者レコードを削除（アドレス帳の乗船履歴に残さないようにする）
     await db.from('members').delete().in('reservation_id', reservationIds)
     await db.from('reservations').update({ status: 'cancelled' }).in('id', reservationIds)
+    // BUG修正: 天候中止対象に未処理のキャンセル申請が残っていると、ダッシュボードに
+    // 「未処理キャンセル」が消えずに残るため、ここで承認済みに変更する。
+    await db.from('cancellation_requests')
+      .update({ status: 'approved' })
+      .in('reservation_id', reservationIds)
+      .eq('status', 'pending')
     await db.from('departure_dates').update({ is_open: false }).eq('id', dateId)
     // プランのロックを全解除
     await db.from('plans').update({ is_locked: false }).in('id', planIds)
