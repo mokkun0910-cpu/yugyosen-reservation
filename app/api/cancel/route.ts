@@ -161,21 +161,42 @@ export async function POST(req: NextRequest) {
 
     if (existing) return NextResponse.json({ error: 'すでにキャンセル申請中です。' }, { status: 400 })
 
-    await db.from('cancellation_requests').insert({ reservation_id: reservation.id })
+    const { error: insertErr } = await db
+      .from('cancellation_requests')
+      .insert({ reservation_id: reservation.id, status: 'pending' })
+    if (insertErr) {
+      console.error('[cancel] キャンセル申請insert失敗:', insertErr)
+      return NextResponse.json(
+        { error: 'キャンセル申請の登録に失敗しました: ' + insertErr.message },
+        { status: 500 }
+      )
+    }
 
+    // ── 船長へLINE通知 ──
+    let captainNotified = false
+    let captainError = ''
     const captainLineUserId = process.env.CAPTAIN_LINE_USER_ID
-    if (captainLineUserId) {
+    if (!captainLineUserId) {
+      captainError = 'CAPTAIN_LINE_USER_ID未設定'
+      console.error('[cancel] CAPTAIN_LINE_USER_ID が未設定のため船長への通知をスキップしました')
+    } else {
       const plan = reservation.plans as any
       const date = plan?.departure_dates?.date
-      await sendCancelRequestToCaptain(captainLineUserId, {
-        reservationNumber,
-        representativeName: reservation.representative_name,
-        planName: plan?.name || '',
-        date: date ? formatDateJa(date) : '',
-        totalMembers: reservation.total_members,
-      }).catch(console.error)
+      try {
+        await sendCancelRequestToCaptain(captainLineUserId, {
+          reservationNumber,
+          representativeName: reservation.representative_name,
+          planName: plan?.name || '',
+          date: date ? formatDateJa(date) : '',
+          totalMembers: reservation.total_members,
+        })
+        captainNotified = true
+      } catch (e: any) {
+        captainError = e?.message || String(e)
+        console.error('[cancel] 船長へのLINE通知失敗:', captainError)
+      }
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, captainNotified, ...(captainError && { captainError }) })
   }
 
   // ② 1名だけキャンセル（人数変更）
