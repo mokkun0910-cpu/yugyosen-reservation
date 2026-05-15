@@ -9,12 +9,14 @@ function ReserveFormContent() {
   const planId = searchParams.get('planId') || ''
   const planName = searchParams.get('planName') || ''
   const members = Number(searchParams.get('members') || 1)
+  // トップページで取得済みのLINE IDをURLパラメータから引き継ぐ
+  const lineUserIdFromUrl = searchParams.get('lineUserId') || ''
 
   const [form, setForm] = useState({
     name: '',
     furigana: '',
     phone: '',
-    lineUserId: '',
+    lineUserId: lineUserIdFromUrl, // URLから初期値をセット
     address: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
@@ -42,12 +44,17 @@ function ReserveFormContent() {
       let uid   = sessionStorage.getItem('liff_uid')  || ''
 
       // sessionStorageにトークンがない場合、このページでLIFFを初期化
-      if (!token) {
+      if (!token && !uid) {
         try {
           const liffId = process.env.NEXT_PUBLIC_LIFF_ID
           if (liffId) {
             const { default: liff } = await import('@line/liff')
             await liff.init({ liffId })
+            if (!liff.isLoggedIn() && liff.isInClient()) {
+              // LINEアプリ内ブラウザ & 未ログイン → ログイン
+              liff.login()
+              return
+            }
             if (liff.isLoggedIn()) {
               const profile = await liff.getProfile()
               uid   = profile.userId

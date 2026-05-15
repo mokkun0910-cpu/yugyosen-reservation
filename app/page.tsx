@@ -18,10 +18,16 @@ async function initLiff(): Promise<{ userId: string; status: 'ok' | 'no_liff_id'
     const liffModule = await import('@line/liff')
     const liff = liffModule.default
     await liff.init({ liffId })
+
     if (!liff.isLoggedIn()) {
-      // ブラウザからのアクセス → LINEログイン画面にリダイレクト
-      liff.login()
-      return { userId: '', status: 'loading' }
+      if (liff.isInClient()) {
+        // LINEアプリ内ブラウザからのアクセス → LINEログイン
+        liff.login()
+        return { userId: '', status: 'loading' }
+      }
+      // 外部ブラウザからのアクセス → LINE連携なしで続行
+      liffStatus = 'no_liff_id'
+      return { userId: '', status: 'no_liff_id' }
     }
     const profile = await liff.getProfile()
     cachedLineUserId = profile.userId
