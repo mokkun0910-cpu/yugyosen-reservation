@@ -159,7 +159,9 @@ export async function POST(req: NextRequest) {
 
   // LINE通知（船長へ）
   const captainLineUserId = process.env.CAPTAIN_LINE_USER_ID
-  if (captainLineUserId) {
+  if (!captainLineUserId) {
+    console.error('[reserve] CAPTAIN_LINE_USER_ID が未設定のため船長への通知をスキップしました')
+  } else {
     await sendCaptainNotification(captainLineUserId, {
       reservationNumber,
       representativeName,
@@ -168,7 +170,9 @@ export async function POST(req: NextRequest) {
       totalMembers,
       currentTotal: currentCount + totalMembers,
       capacity: plan.capacity,
-    }).catch(console.error)
+    }).catch((e: any) => {
+      console.error('[reserve] 船長へのLINE通知失敗:', e?.message || e)
+    })
   }
 
   return NextResponse.json({ reservationNumber })

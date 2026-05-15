@@ -8,6 +8,57 @@ function getAdminHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
   }
 }
+
+function LineTestPanel() {
+  const [testing, setTesting] = useState(false)
+  const [result, setResult] = useState<any>(null)
+
+  async function handleTest() {
+    setTesting(true)
+    setResult(null)
+    try {
+      const res = await fetch('/api/admin/test-line', { headers: getAdminHeaders() })
+      const data = await res.json()
+      setResult(data)
+    } catch (e: any) {
+      setResult({ ok: false, error: '通信エラー: ' + e?.message })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🔔</span>
+          <span className="font-bold text-sm text-navy-700">船長へのLINE通知テスト</span>
+        </div>
+        <button
+          onClick={handleTest}
+          disabled={testing}
+          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {testing ? '送信中...' : 'テスト送信'}
+        </button>
+      </div>
+      {result && (
+        <div className={`text-xs rounded-lg p-3 mt-2 ${result.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+          {result.ok ? (
+            <p>✅ {result.message}</p>
+          ) : (
+            <>
+              <p className="font-bold mb-1">❌ {result.error || result.cause}</p>
+              {result.fix && <p className="mt-1 text-red-700">📋 対処法：{result.fix}</p>}
+              {result.lineApiResponse && <p className="mt-1 text-gray-500 break-all">LINE応答: {result.lineApiResponse}</p>}
+            </>
+          )}
+        </div>
+      )}
+      <p className="text-xs text-gray-400 mt-2">予約通知が届かない場合はこのボタンで原因を確認できます</p>
+    </div>
+  )
+}
 export default function AdminDashboard() {
   const router = useRouter()
   const [stats, setStats] = useState({ pendingCancellations: 0, upcomingDates: 0 })
@@ -90,6 +141,8 @@ export default function AdminDashboard() {
           <div className="text-xs text-gray-500 mt-1">未処理キャンセル</div>
         </div>
       </div>
+      {/* LINE通知テスト */}
+      <LineTestPanel />
       {/* キャンセル警告 */}
       {stats.pendingCancellations > 0 && (
         <button onClick={() => router.push('/admin/cancellations')}

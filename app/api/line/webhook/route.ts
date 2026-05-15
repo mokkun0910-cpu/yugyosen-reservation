@@ -32,6 +32,28 @@ export async function POST(req: NextRequest) {
   for (const event of events) {
     // messageイベント：お客様からのテキストメッセージに自動返信
     if (event.type === 'message' && event.message?.type === 'text' && event.replyToken) {
+      const userId = event.source?.userId || ''
+      const msgText: string = event.message.text?.trim() || ''
+
+      // 管理者用：「ID確認」と送信するとLINEユーザーIDを返答（CAPTAIN_LINE_USER_ID設定用）
+      if (msgText === 'ID確認' || msgText === 'id確認') {
+        await fetch('https://api.line.me/v2/bot/message/reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'text',
+              text: `あなたのLINEユーザーIDは：\n\n${userId}\n\nこのIDを Vercel の環境変数 CAPTAIN_LINE_USER_ID に設定してください。`,
+            }],
+          }),
+        }).catch(console.error)
+        continue
+      }
+
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
       await fetch('https://api.line.me/v2/bot/message/reply', {
         method: 'POST',
